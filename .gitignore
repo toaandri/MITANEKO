@@ -58,3 +58,5 @@ dist/
 *.temp
 tmp/
 temp/
+CAHIER_DES_CHARGES.md
+backend/.env.example
