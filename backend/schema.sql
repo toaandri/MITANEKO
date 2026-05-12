@@ -456,19 +456,10 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_votes AFTER INSERT OR DELETE ON votes
 FOR EACH ROW EXECUTE FUNCTION update_signalement_votes();
 
--- ============================================
--- 17. DONNÉES INITIALES
--- ============================================
-
--- Insérer quelques communes de test
-INSERT INTO communes (nom, slug, region, description) VALUES
-  ('Antananarivo', 'antananarivo', 'Analamanga', 'Capitale de Madagascar'),
-  ('Fianarantsoa', 'fianarantsoa', 'Amoron''i Mania', 'Chef-lieu de la région Amoron''i Mania'),
-  ('Toliara', 'toliara', 'Atsimo-Andrefana', 'Capitale du sud de Madagascar')
-ON CONFLICT (slug) DO NOTHING;
+-- Données de démonstration : voir seed.sql (à exécuter après ce fichier)
 
 -- ============================================
--- 18. VUES UTILES
+-- 17. VUES UTILES
 -- ============================================
 
 -- Vue des signalements avec infos enrichies

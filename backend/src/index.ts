@@ -1,10 +1,11 @@
-import express, { Express, Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response } from 'express';
 import 'express-async-errors';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Import routes
 import authRoutes from '@routes/auth.routes.js';
@@ -74,6 +75,14 @@ app.get('/api/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Fichiers uploadés (photos signalements)
+const uploadRoot = process.env.UPLOAD_DIR
+  ? path.isAbsolute(process.env.UPLOAD_DIR)
+    ? process.env.UPLOAD_DIR
+    : path.join(process.cwd(), process.env.UPLOAD_DIR)
+  : path.join(process.cwd(), 'uploads');
+app.use('/uploads', express.static(uploadRoot));
 
 // ==========================================
 // API ROUTES

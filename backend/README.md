@@ -26,18 +26,15 @@ cp .env.example .env
 
 ### 3. Setup database
 
-Create PostgreSQL database and run migrations:
+Create PostgreSQL database, then apply the schema (structure only), then optionally the seed (fictional data):
 
 ```bash
 createdb mitaneko_db
-psql mitaneko_db < schema.sql
+psql mitaneko_db -f schema.sql
+psql mitaneko_db -f seed.sql
 ```
 
-Or use the migration script:
-
-```bash
-npm run migrate
-```
+The `seed.sql` file is for local/demo use only; production databases typically skip it or use their own import.
 
 ## 🏃 Running
 
@@ -152,7 +149,8 @@ backend/
 │   ├── utils/           # Utility functions (to implement)
 │   └── index.ts         # App entry point
 ├── scripts/             # Database & seed scripts
-├── schema.sql           # PostgreSQL schema
+├── schema.sql           # PostgreSQL schema (structure uniquement)
+├── seed.sql             # Données fictives (après schema.sql)
 ├── .env.example         # Environment variables template
 ├── package.json
 └── tsconfig.json
