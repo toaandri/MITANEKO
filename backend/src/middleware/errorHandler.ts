@@ -56,8 +56,8 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     role: string;
-    commune_id?: string;
-    quartier_id?: string;
+    commune_id?: string | null;
+    quartier_id?: string | null;
   };
 }
 
@@ -75,7 +75,13 @@ export const authenticate = (
       throw error;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
+      id: string;
+      email: string;
+      role: string;
+      commune_id?: string | null;
+      quartier_id?: string | null;
+    };
     req.user = decoded;
     next();
   } catch (error) {
@@ -104,6 +110,28 @@ export const authorize = (...roles: string[]) => {
 
     next();
   };
+};
+
+/** Sets req.user when Authorization Bearer is valid; otherwise continues without user */
+export const optionalAuthenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      next();
+      return;
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
+      id: string;
+      email: string;
+      role: string;
+      commune_id?: string | null;
+      quartier_id?: string | null;
+    };
+    req.user = decoded;
+    next();
+  } catch {
+    next();
+  }
 };
 
 // ==========================================

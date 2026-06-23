@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import Joi from 'joi';
 import { db } from '@config/database.js';
@@ -52,22 +52,27 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await db.one(
     `INSERT INTO users (nom, prenom, email, telephone, password_hash, commune_id, quartier_id, role)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, email, nom, prenom, role`,
+     RETURNING id, email, nom, prenom, role, commune_id, quartier_id`,
     [nom, prenom, email, telephone || null, hashedPassword, commune_id || null, quartier_id || null, 'citoyen']
   );
 
-  // Generate tokens
-  const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || 'secret',
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
-  );
+  const tokenPayload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    commune_id: user.commune_id,
+    quartier_id: user.quartier_id
+  };
 
-  const refreshToken = jwt.sign(
-    { id: user.id },
-    process.env.JWT_REFRESH_SECRET || 'refresh-secret',
-    { expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d' }
-  );
+  // Generate tokens
+  const accessOpts: SignOptions = { expiresIn: (process.env.JWT_EXPIRE || '7d') as SignOptions['expiresIn'] };
+  const refreshOpts: SignOptions = {
+    expiresIn: (process.env.JWT_REFRESH_EXPIRE || '30d') as SignOptions['expiresIn']
+  };
+
+  const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET || 'secret', accessOpts);
+
+  const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET || 'refresh-secret', refreshOpts);
 
   res.status(201).json({
     success: true,
@@ -91,7 +96,8 @@ const login = asyncHandler(async (req: Request, res: Response) => {
 
   // Find user
   const user = await db.oneOrNone(
-    'SELECT id, email, nom, prenom, password_hash, role, commune_id, quartier_id FROM users WHERE email = $1',
+    `SELECT id, email, nom, prenom, password_hash, role, commune_id, quartier_id
+     FROM users WHERE email = $1 AND (status_compte IS NULL OR status_compte = 'actif')`,
     [email]
   );
 
@@ -111,17 +117,24 @@ const login = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Generate tokens
+  const accessOpts: SignOptions = { expiresIn: (process.env.JWT_EXPIRE || '7d') as SignOptions['expiresIn'] };
+  const refreshOpts: SignOptions = {
+    expiresIn: (process.env.JWT_REFRESH_EXPIRE || '30d') as SignOptions['expiresIn']
+  };
+
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      commune_id: user.commune_id,
+      quartier_id: user.quartier_id
+    },
     process.env.JWT_SECRET || 'secret',
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    accessOpts
   );
 
-  const refreshToken = jwt.sign(
-    { id: user.id },
-    process.env.JWT_REFRESH_SECRET || 'refresh-secret',
-    { expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d' }
-  );
+  const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET || 'refresh-secret', refreshOpts);
 
   // Update last access
   await db.none('UPDATE users SET dernier_acces = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
@@ -161,12 +174,23 @@ const refreshToken = asyncHandler(async (req: Request, res: Response) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || 'refresh-secret') as any;
-    const user = await db.one('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
+    const user = await db.one(
+      `SELECT id, email, role, commune_id, quartier_id FROM users WHERE id = $1
+       AND (status_compte IS NULL OR status_compte = 'actif')`,
+      [decoded.id]
+    );
 
+    const accessOpts: SignOptions = { expiresIn: (process.env.JWT_EXPIRE || '7d') as SignOptions['expiresIn'] };
     const newAccessToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        commune_id: user.commune_id,
+        quartier_id: user.quartier_id
+      },
       process.env.JWT_SECRET || 'secret',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      accessOpts
     );
 
     res.json({
