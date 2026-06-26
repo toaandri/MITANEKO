@@ -17,6 +17,9 @@ import communeRoutes from '@routes/communes.routes.js';
 import userRoutes from '@routes/users.routes.js';
 import quarterRoutes from '@routes/quartiers.routes.js';
 import analyticsRoutes from '@routes/analytics.routes.js';
+import fokontanyRoutes from '@routes/fokontany.routes.js';
+import publicationRoutes from '@routes/publications.routes.js';
+import groupesRoutes from '@routes/groupes.routes.js';
 
 // Import middleware
 import { errorHandler } from '@middleware/errorHandler.js';
@@ -114,6 +117,15 @@ app.use('/api/quartiers', quarterRoutes);
 
 // Analytics routes
 app.use('/api/analytics', analyticsRoutes);
+
+// Fokontany (gestion citoyens + tokens)
+app.use('/api/fokontany', fokontanyRoutes);
+
+// Publications communautaires
+app.use('/api/publications', publicationRoutes);
+
+// Groupes communauté (ex: Antananarivo)
+app.use('/api/groupes-communaute', groupesRoutes);
 
 // ==========================================
 // 404 HANDLER

@@ -6,10 +6,11 @@ export type UserRole = 'citoyen' | 'moderateur_quartier' | 'acteur_communal' | '
 
 export interface User {
   id: string;
-  email: string;
+  email?: string;
   nom: string;
   prenom: string;
   telephone?: string;
+  pseudonyme?: string;
   avatar_url?: string;
   role: UserRole;
   commune_id?: string;
@@ -131,6 +132,61 @@ export interface Commentaire {
   author_id: string;
   contenu: string;
   parent_id?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// ==========================================
+// Publication Types
+// ==========================================
+
+export type PublicationCategorie = 'securite' | 'entraide' | 'hygiene' | 'communaute' | 'conseil' | 'autre';
+export type PublicationPortee = 'fokontany' | 'commune' | 'securite_zone';
+export type TokenType = 'inscription' | 'migration';
+
+export interface RegistrationToken {
+  id: string;
+  token_code: string;
+  type: TokenType;
+  quartier_id: string;
+  commune_id: string;
+  created_by: string;
+  used_by?: string;
+  migration_from_quartier_id?: string;
+  expires_at: Date;
+  used_at?: Date;
+  is_used: boolean;
+  notes?: string;
+  created_at: Date;
+}
+
+export interface GroupeCommunaute {
+  id: string;
+  commune_id: string;
+  nom: string;
+  slug: string;
+  description?: string;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Publication {
+  id: string;
+  creator_id: string;
+  titre: string;
+  contenu: string;
+  categorie: PublicationCategorie;
+  portee: PublicationPortee;
+  quartier_id?: string;
+  commune_id: string;
+  groupe_communaute_id?: string;
+  localisation?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  adresse?: string;
+  photo_url?: string;
   created_at: Date;
   updated_at: Date;
 }

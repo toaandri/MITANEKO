@@ -1504,7 +1504,8 @@ Analytics:
 ## 📖 Documentation Additionnelle
 
 Pour plus d'informations, consultez:
-- [Schema SQL détaillé](./schema.sql)
+- [Schéma SQL (structure)](./backend/schema.sql)
+- [Données fictives / seed](./backend/seed.sql)
 - [Documentation API Google Drive]
 - [Frontend Architecture](./frontend/)
 - [Documentation Mobile](./mobile/)

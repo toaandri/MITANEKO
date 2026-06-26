@@ -1,6 +1,10 @@
 -- ============================================
--- MITANEKO - Schema PostgreSQL
--- Plateforme de Gouvernance Participative Urbaine
+-- MITANEKO — Structure PostgreSQL
+-- ============================================
+-- Fichier : sql/schema.sql
+-- Contenu : extensions, types, tables, index, triggers, vues
+-- Usage   : psql mitaneko_db -f sql/schema.sql
+-- Données : voir sql/seed.sql (à exécuter après)
 -- ============================================
 
 -- Extensions
@@ -9,10 +13,9 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- ============================================
--- 1. TABLES DE REFERENCE
+-- 1. TYPES ENUM
 -- ============================================
 
--- Énumération des rôles
 CREATE TYPE user_role AS ENUM (
   'citoyen',
   'moderateur_quartier',
@@ -21,7 +24,6 @@ CREATE TYPE user_role AS ENUM (
   'admin_plateforme'
 );
 
--- Énumération des statuts de signalement
 CREATE TYPE signalement_status AS ENUM (
   'cree',
   'approuve',
@@ -33,7 +35,6 @@ CREATE TYPE signalement_status AS ENUM (
   'ferme'
 );
 
--- Énumération des catégories
 CREATE TYPE categorie_probleme AS ENUM (
   'proprete',
   'securite',
@@ -43,7 +44,6 @@ CREATE TYPE categorie_probleme AS ENUM (
   'autre'
 );
 
--- Énumération des statuts d'action
 CREATE TYPE action_status AS ENUM (
   'assignee',
   'en_attente',
@@ -52,8 +52,16 @@ CREATE TYPE action_status AS ENUM (
   'annulee'
 );
 
+CREATE TYPE token_type AS ENUM ('inscription', 'migration');
+
+CREATE TYPE publication_categorie AS ENUM (
+  'securite', 'entraide', 'hygiene', 'communaute', 'conseil', 'autre'
+);
+
+CREATE TYPE publication_portee AS ENUM ('fokontany', 'commune', 'securite_zone');
+
 -- ============================================
--- 2. TABLE COMMUNES
+-- 2. COMMUNES
 -- ============================================
 
 CREATE TABLE communes (
@@ -83,7 +91,7 @@ CREATE INDEX idx_communes_slug ON communes(slug);
 CREATE INDEX idx_communes_localisation ON communes USING GIST(localisation);
 
 -- ============================================
--- 3. TABLE QUARTIERS
+-- 3. QUARTIERS (= fokontany)
 -- ============================================
 
 CREATE TABLE quartiers (
@@ -106,20 +114,22 @@ CREATE INDEX idx_quartiers_commune ON quartiers(commune_id);
 CREATE INDEX idx_quartiers_localisation ON quartiers USING GIST(localisation_polygone);
 
 -- ============================================
--- 4. TABLE UTILISATEURS
+-- 4. UTILISATEURS
 -- ============================================
 
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email VARCHAR(255) NOT NULL UNIQUE,
+  email VARCHAR(255) UNIQUE,
   telephone VARCHAR(20),
   nom VARCHAR(255) NOT NULL,
   prenom VARCHAR(255),
+  pseudonyme VARCHAR(100) UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   avatar_url TEXT,
   role user_role DEFAULT 'citoyen',
   commune_id UUID REFERENCES communes(id) ON DELETE SET NULL,
   quartier_id UUID REFERENCES quartiers(id) ON DELETE SET NULL,
+  registration_token_id UUID,
   bio TEXT,
   verified_email BOOLEAN DEFAULT FALSE,
   verified_telephone BOOLEAN DEFAULT FALSE,
@@ -137,9 +147,86 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_commune ON users(commune_id);
 CREATE INDEX idx_users_quartier ON users(quartier_id);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_pseudonyme ON users(pseudonyme);
 
 -- ============================================
--- 5. TABLE SIGNALEMENTS
+-- 5. TOKENS D'INSCRIPTION FOKONTANY
+-- ============================================
+
+CREATE TABLE registration_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  token_code VARCHAR(12) NOT NULL UNIQUE,
+  type token_type NOT NULL DEFAULT 'inscription',
+  quartier_id UUID NOT NULL REFERENCES quartiers(id) ON DELETE CASCADE,
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  used_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  migration_from_quartier_id UUID REFERENCES quartiers(id) ON DELETE SET NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  is_used BOOLEAN DEFAULT FALSE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_registration_tokens_code ON registration_tokens(token_code);
+CREATE INDEX idx_registration_tokens_quartier ON registration_tokens(quartier_id);
+CREATE INDEX idx_registration_tokens_used ON registration_tokens(is_used);
+
+ALTER TABLE users
+  ADD CONSTRAINT users_registration_token_id_fkey
+  FOREIGN KEY (registration_token_id) REFERENCES registration_tokens(id) ON DELETE SET NULL;
+
+-- ============================================
+-- 6. GROUPES COMMUNAUTÉ
+-- ============================================
+
+CREATE TABLE groupe_communautes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  nom VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(commune_id, slug)
+);
+
+CREATE INDEX idx_groupe_communautes_commune ON groupe_communautes(commune_id);
+
+-- ============================================
+-- 7. PUBLICATIONS COMMUNAUTAIRES
+-- ============================================
+
+CREATE TABLE publications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  creator_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  titre VARCHAR(200) NOT NULL,
+  contenu TEXT NOT NULL,
+  categorie publication_categorie NOT NULL,
+  portee publication_portee NOT NULL DEFAULT 'fokontany',
+  quartier_id UUID REFERENCES quartiers(id) ON DELETE CASCADE,
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  groupe_communaute_id UUID REFERENCES groupe_communautes(id) ON DELETE SET NULL,
+  localisation GEOGRAPHY(POINT, 4326),
+  adresse VARCHAR(500),
+  photo_url TEXT,
+  is_archived BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_publications_quartier ON publications(quartier_id);
+CREATE INDEX idx_publications_commune ON publications(commune_id);
+CREATE INDEX idx_publications_categorie ON publications(categorie);
+CREATE INDEX idx_publications_portee ON publications(portee);
+CREATE INDEX idx_publications_groupe ON publications(groupe_communaute_id);
+CREATE INDEX idx_publications_localisation ON publications USING GIST(localisation);
+CREATE INDEX idx_publications_created ON publications(created_at DESC);
+
+-- ============================================
+-- 8. SIGNALEMENTS
 -- ============================================
 
 CREATE TABLE signalements (
@@ -175,7 +262,7 @@ CREATE INDEX idx_signalements_localisation ON signalements USING GIST(localisati
 CREATE INDEX idx_signalements_created ON signalements(created_at DESC);
 
 -- ============================================
--- 6. TABLE PHOTOS SIGNALEMENTS
+-- 9. PHOTOS SIGNALEMENTS
 -- ============================================
 
 CREATE TABLE signalement_photos (
@@ -193,7 +280,7 @@ CREATE TABLE signalement_photos (
 CREATE INDEX idx_signalement_photos_signalement ON signalement_photos(signalement_id);
 
 -- ============================================
--- 7. TABLE VOTES
+-- 10. VOTES
 -- ============================================
 
 CREATE TABLE votes (
@@ -209,7 +296,7 @@ CREATE INDEX idx_votes_signalement ON votes(signalement_id);
 CREATE INDEX idx_votes_user ON votes(user_id);
 
 -- ============================================
--- 8. TABLE ACTIONS
+-- 11. ACTIONS
 -- ============================================
 
 CREATE TABLE actions (
@@ -241,7 +328,7 @@ CREATE INDEX idx_actions_status ON actions(status);
 CREATE INDEX idx_actions_responsable ON actions(responsable_id);
 
 -- ============================================
--- 9. TABLE COMMENTAIRES
+-- 12. COMMENTAIRES
 -- ============================================
 
 CREATE TABLE commentaires (
@@ -262,7 +349,7 @@ CREATE INDEX idx_commentaires_author ON commentaires(author_id);
 CREATE INDEX idx_commentaires_parent ON commentaires(parent_id);
 
 -- ============================================
--- 10. TABLE EVENEMENTS COMMUNAUTAIRES
+-- 13. ÉVÉNEMENTS
 -- ============================================
 
 CREATE TABLE evenements (
@@ -289,7 +376,7 @@ CREATE INDEX idx_evenements_quartier ON evenements(quartier_id);
 CREATE INDEX idx_evenements_date ON evenements(date_debut);
 
 -- ============================================
--- 11. TABLE PARTICIPANTS EVENEMENT
+-- 14. PARTICIPANTS ÉVÉNEMENT
 -- ============================================
 
 CREATE TABLE evenement_participants (
@@ -305,7 +392,7 @@ CREATE INDEX idx_evenement_participants_evenement ON evenement_participants(even
 CREATE INDEX idx_evenement_participants_user ON evenement_participants(user_id);
 
 -- ============================================
--- 12. TABLE LOGS ACTIVITES
+-- 15. LOGS ACTIVITÉS
 -- ============================================
 
 CREATE TABLE activity_logs (
@@ -326,7 +413,7 @@ CREATE INDEX idx_activity_logs_entity ON activity_logs(entity_type, entity_id);
 CREATE INDEX idx_activity_logs_created ON activity_logs(created_at DESC);
 
 -- ============================================
--- 13. TABLE STATISTIQUES AGRÉGÉES
+-- 16. STATISTIQUES
 -- ============================================
 
 CREATE TABLE statistiques_quartier (
@@ -364,7 +451,7 @@ CREATE TABLE statistiques_commune (
 CREATE INDEX idx_statistiques_commune ON statistiques_commune(commune_id, date);
 
 -- ============================================
--- 14. TABLE NOTIFICATIONS
+-- 17. NOTIFICATIONS
 -- ============================================
 
 CREATE TABLE notifications (
@@ -387,7 +474,7 @@ CREATE INDEX idx_notifications_lue ON notifications(lue);
 CREATE INDEX idx_notifications_created ON notifications(created_at DESC);
 
 -- ============================================
--- 15. TABLE DONNEES ADMINISTRATEURS
+-- 18. PARAMÈTRES ADMIN
 -- ============================================
 
 CREATE TABLE admin_settings (
@@ -402,10 +489,9 @@ CREATE TABLE admin_settings (
 );
 
 -- ============================================
--- 16. TRIGGERS & FUNCTIONS
+-- 19. FONCTIONS & TRIGGERS
 -- ============================================
 
--- Trigger pour mettre à jour le timestamp
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -423,6 +509,12 @@ FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 CREATE TRIGGER trigger_users_updated BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
+CREATE TRIGGER trigger_groupe_communautes_updated BEFORE UPDATE ON groupe_communautes
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER trigger_publications_updated BEFORE UPDATE ON publications
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
 CREATE TRIGGER trigger_signalements_updated BEFORE UPDATE ON signalements
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
@@ -435,13 +527,11 @@ FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 CREATE TRIGGER trigger_evenements_updated BEFORE UPDATE ON evenements
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
--- Trigger pour incrémenter votes et mettre à jour statut signalement
 CREATE OR REPLACE FUNCTION update_signalement_votes()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     UPDATE signalements SET priorite_votes = priorite_votes + 1 WHERE id = NEW.signalement_id;
-    -- Si 5+ votes et statut 'en_attente_vote', passer à 'priorise'
     UPDATE signalements SET status = 'priorise'
     WHERE id = NEW.signalement_id
       AND status = 'en_attente_vote'
@@ -456,15 +546,12 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_votes AFTER INSERT OR DELETE ON votes
 FOR EACH ROW EXECUTE FUNCTION update_signalement_votes();
 
--- Données de démonstration : voir seed.sql (à exécuter après ce fichier)
-
 -- ============================================
--- 17. VUES UTILES
+-- 20. VUES
 -- ============================================
 
--- Vue des signalements avec infos enrichies
 CREATE OR REPLACE VIEW signalements_enrichis AS
-SELECT 
+SELECT
   s.id,
   s.titre,
   s.description,
@@ -474,12 +561,12 @@ SELECT
   s.localisation,
   s.adresse,
   s.created_at,
-  c.nom as commune_nom,
-  q.nom as quartier_nom,
-  u.nom as creator_nom,
-  u.email as creator_email,
-  COUNT(DISTINCT v.id) as total_votes,
-  COUNT(DISTINCT a.id) as total_actions
+  c.nom AS commune_nom,
+  q.nom AS quartier_nom,
+  u.nom AS creator_nom,
+  u.email AS creator_email,
+  COUNT(DISTINCT v.id) AS total_votes,
+  COUNT(DISTINCT a.id) AS total_actions
 FROM signalements s
 LEFT JOIN communes c ON s.commune_id = c.id
 LEFT JOIN quartiers q ON s.quartier_id = q.id
@@ -489,23 +576,18 @@ LEFT JOIN actions a ON s.id = a.signalement_id
 GROUP BY s.id, s.titre, s.description, s.categorie, s.status, s.priorite_votes,
          s.localisation, s.adresse, s.created_at, c.nom, q.nom, u.nom, u.email;
 
--- Vue des actions en cours
 CREATE OR REPLACE VIEW actions_en_cours AS
-SELECT 
+SELECT
   a.id,
   a.titre,
   a.status,
   a.date_cible,
-  s.titre as signalement_titre,
-  c.nom as commune_nom,
-  u.nom as responsable_nom
+  s.titre AS signalement_titre,
+  c.nom AS commune_nom,
+  u.nom AS responsable_nom
 FROM actions a
 LEFT JOIN signalements s ON a.signalement_id = s.id
 LEFT JOIN communes c ON a.commune_id = c.id
 LEFT JOIN users u ON a.responsable_id = u.id
 WHERE a.status IN ('assignee', 'en_attente', 'en_cours')
 ORDER BY a.date_cible ASC;
-
--- ============================================
--- FIN DU SCHEMA
--- ============================================

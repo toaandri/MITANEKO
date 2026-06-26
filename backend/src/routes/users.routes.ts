@@ -16,6 +16,7 @@ const router = Router();
 const updateProfileSchema = Joi.object({
   nom: Joi.string().min(1).max(255).optional(),
   prenom: Joi.string().min(1).max(255).allow('', null).optional(),
+  pseudonyme: Joi.string().min(2).max(100).optional(),
   telephone: Joi.string().max(20).allow('', null).optional(),
   bio: Joi.string().max(2000).allow('', null).optional(),
   anonyme: Joi.boolean().optional(),
@@ -64,7 +65,7 @@ const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   }
 
   const row = await db.oneOrNone(
-    `SELECT id, email, nom, prenom, telephone, avatar_url, role, commune_id, quartier_id, bio,
+    `SELECT id, email, nom, prenom, telephone, pseudonyme, avatar_url, role, commune_id, quartier_id, bio,
             verified_email, anonyme, preferences_notifications, status_compte, created_at, updated_at
      FROM users WHERE id = $1`,
     [req.user.id]
@@ -87,6 +88,26 @@ const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
 
   const v = req.body as Record<string, unknown>;
 
+  if (v.pseudonyme !== undefined) {
+    const taken = await db.oneOrNone(
+      `SELECT id FROM users WHERE pseudonyme = $1 AND id <> $2`,
+      [v.pseudonyme, req.user.id]
+    );
+    if (taken) {
+      const err: ApiError = new Error('Ce pseudonyme est déjà pris');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  if (req.user.role === 'citoyen' && (v.commune_id !== undefined || v.quartier_id !== undefined)) {
+    const err: ApiError = new Error(
+      'Changement de fokontany : demandez un code de migration à votre nouveau fokontany'
+    );
+    err.statusCode = 403;
+    throw err;
+  }
+
   if (v.password) {
     const u = await db.one(`SELECT password_hash FROM users WHERE id = $1`, [req.user.id]);
     const ok = await bcryptjs.compare(String(v.current_password), u.password_hash);
@@ -104,6 +125,7 @@ const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const fields = [
     'nom',
     'prenom',
+    'pseudonyme',
     'telephone',
     'bio',
     'anonyme',
@@ -133,7 +155,7 @@ const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   vals.push(req.user.id);
   const updated = await db.one(
     `UPDATE users SET ${sets.join(', ')} WHERE id = $${n}
-     RETURNING id, email, nom, prenom, telephone, avatar_url, role, commune_id, quartier_id, bio,
+     RETURNING id, email, nom, prenom, pseudonyme, telephone, avatar_url, role, commune_id, quartier_id, bio,
                verified_email, anonyme, preferences_notifications, updated_at`,
     vals
   );

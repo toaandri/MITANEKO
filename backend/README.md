@@ -26,13 +26,18 @@ cp .env.example .env
 
 ### 3. Setup database
 
-Create PostgreSQL database, then apply the schema (structure only), then optionally the seed (fictional data):
+Create PostgreSQL database, then apply the schema (structure), then optionally the seed (demo data):
 
 ```bash
 createdb mitaneko_db
-psql mitaneko_db -f schema.sql
-psql mitaneko_db -f seed.sql
+psql mitaneko_db -f sql/schema.sql
+psql mitaneko_db -f sql/seed.sql
 ```
+
+| Fichier | Rôle |
+|---------|------|
+| `sql/schema.sql` | Structure complète (tables, index, triggers, vues) |
+| `sql/seed.sql` | Données fictives dev/démo (comptes, tokens, publications) |
 
 The `seed.sql` file is for local/demo use only; production databases typically skip it or use their own import.
 
@@ -148,9 +153,9 @@ backend/
 │   ├── types/           # TypeScript types
 │   ├── utils/           # Utility functions (to implement)
 │   └── index.ts         # App entry point
-├── scripts/             # Database & seed scripts
-├── schema.sql           # PostgreSQL schema (structure uniquement)
-├── seed.sql             # Données fictives (après schema.sql)
+├── sql/
+│   ├── schema.sql       # Structure PostgreSQL (tables, triggers, vues)
+│   └── seed.sql         # Données fictives dev/démo
 ├── .env.example         # Environment variables template
 ├── package.json
 └── tsconfig.json

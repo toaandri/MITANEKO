@@ -50,3 +50,27 @@ export function conditionalSignalementPhotos(
   }
   next();
 }
+
+export const publicationUpload = multer({
+  storage,
+  limits: { fileSize: Number(process.env.MAX_UPLOAD_MB || 8) * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) {
+      cb(new Error('Seules les images JPEG, PNG, WebP ou GIF sont acceptées'));
+      return;
+    }
+    cb(null, true);
+  }
+});
+
+export function conditionalPublicationPhoto(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (req.is('multipart/form-data')) {
+    publicationUpload.single('photo')(req, res, next);
+    return;
+  }
+  next();
+}
