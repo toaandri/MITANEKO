@@ -234,12 +234,35 @@ const processQueueItem = asyncHandler(async (req: AuthRequest, res: Response) =>
         );
       } else if (item.entity_type === 'commentaire') {
         await t.none(`DELETE FROM commentaires WHERE id = $1`, [item.entity_id]);
+      } else if (item.entity_type === 'signalement') {
+        await t.none(
+          `UPDATE signalements SET
+             status = 'rejete',
+             modere = TRUE,
+             modere_par = $2,
+             date_moderation = CURRENT_TIMESTAMP,
+             raison_rejet = $3,
+             is_archived = TRUE
+           WHERE id = $1`,
+          [item.entity_id, req.user!.id, motif || 'Supprimé par modération']
+        );
       }
     } else if (action === 'approuver') {
       if (item.entity_type === 'publication') {
         await t.none(`UPDATE publications SET moderation_statut = 'approuve' WHERE id = $1`, [item.entity_id]);
       } else if (item.entity_type === 'commentaire') {
         await t.none(`UPDATE commentaires SET is_moderated = TRUE WHERE id = $1`, [item.entity_id]);
+      } else if (item.entity_type === 'signalement') {
+        await t.none(
+          `UPDATE signalements SET
+             status = 'en_attente_vote',
+             modere = TRUE,
+             modere_par = $2,
+             date_moderation = CURRENT_TIMESTAMP,
+             raison_rejet = NULL
+           WHERE id = $1`,
+          [item.entity_id, req.user!.id]
+        );
       }
     } else if (action === 'suspendre_auteur' && authorId) {
       const days = bannissement ? undefined : duree_jours || (duree_mois ? duree_mois * 30 : 7);
