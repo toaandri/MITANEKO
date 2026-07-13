@@ -13,13 +13,18 @@ import signalementRoutes from '@routes/signalements.routes.js';
 import voteRoutes from '@routes/votes.routes.js';
 import actionRoutes from '@routes/actions.routes.js';
 import commentRoutes from '@routes/comments.routes.js';
-import communeRoutes from '@routes/communes.routes.js';
+import communesRoutes from '@routes/communes.routes.js';
 import userRoutes from '@routes/users.routes.js';
 import quarterRoutes from '@routes/quartiers.routes.js';
 import analyticsRoutes from '@routes/analytics.routes.js';
 import fokontanyRoutes from '@routes/fokontany.routes.js';
 import publicationRoutes from '@routes/publications.routes.js';
 import groupesRoutes from '@routes/groupes.routes.js';
+import communeDesktopRoutes from '@routes/commune.routes.js';
+import moderationRoutes from '@routes/moderation.routes.js';
+import adminRoutes from '@routes/admin.routes.js';
+import publicRoutes from '@routes/public.routes.js';
+import groupesEntraideRoutes from '@routes/groupesEntraide.routes.js';
 
 // Import middleware
 import { errorHandler } from '@middleware/errorHandler.js';
@@ -110,7 +115,7 @@ app.use('/api/actions', actionRoutes);
 app.use('/api/comments', commentRoutes);
 
 // Commune routes
-app.use('/api/communes', communeRoutes);
+app.use('/api/communes', communesRoutes);
 
 // Quarter routes
 app.use('/api/quartiers', quarterRoutes);
@@ -126,6 +131,21 @@ app.use('/api/publications', publicationRoutes);
 
 // Groupes communauté (ex: Antananarivo)
 app.use('/api/groupes-communaute', groupesRoutes);
+
+// Application desktop commune (modération, sondages, rapports)
+app.use('/api/commune', communeDesktopRoutes);
+
+// Modération & sanctions
+app.use('/api/moderation', moderationRoutes);
+
+// Application desktop admin
+app.use('/api/admin', adminRoutes);
+
+// Site public (impact MITANEKO)
+app.use('/api/public', publicRoutes);
+
+// Groupes d'entraide temporaires
+app.use('/api/groupes-entraide', groupesEntraideRoutes);
 
 // ==========================================
 // 404 HANDLER

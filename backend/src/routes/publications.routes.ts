@@ -6,6 +6,7 @@ import {
   authenticate,
   optionalAuthenticate,
   validate,
+  checkAccountStatus,
   ApiError,
   AuthRequest
 } from '@middleware/errorHandler.js';
@@ -174,7 +175,7 @@ const listPublications = asyncHandler(async (req: AuthRequest, res: Response) =>
      LEFT JOIN groupe_communautes gc ON gc.id = p.groupe_communaute_id
      LEFT JOIN users u ON u.id = p.creator_id
      ${where}
-     ORDER BY p.created_at DESC
+     ORDER BY p.is_epinglee DESC NULLS LAST, p.epinglee_at DESC NULLS LAST, p.created_at DESC
      LIMIT $${i} OFFSET $${i + 1}`,
     params
   );
@@ -395,7 +396,221 @@ const deletePublication = asyncHandler(async (req: AuthRequest, res: Response) =
   res.json({ success: true, message: 'Publication archivée' });
 });
 
+/** GET /api/publications/:id/sondage — Résultats avec pourcentages */
+const getSondageResults = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const pub = await db.oneOrNone(
+    `SELECT id, type_publication FROM publications WHERE id = $1 AND is_archived = FALSE`,
+    [req.params.id]
+  );
+  if (!pub || pub.type_publication !== 'sondage') {
+    const err: ApiError = new Error('Sondage introuvable');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const options = await db.any(
+    `SELECT o.id, o.libelle, o.position, COUNT(v.id)::int AS votes
+     FROM sondage_options o
+     LEFT JOIN sondage_votes v ON v.option_id = o.id
+     WHERE o.publication_id = $1
+     GROUP BY o.id, o.libelle, o.position
+     ORDER BY o.position`,
+    [req.params.id]
+  );
+
+  const total = options.reduce((s: number, o: { votes: number }) => s + o.votes, 0);
+  const results = options.map((o: { id: string; libelle: string; votes: number; position: number }) => ({
+    ...o,
+    pourcentage: total > 0 ? Math.round((o.votes / total) * 1000) / 10 : 0
+  }));
+
+  res.json({ success: true, data: { total_votes: total, options: results } });
+});
+
+/** POST /api/publications/:id/sondage/voter */
+const voteSondage = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    const err: ApiError = new Error('Authentification requise');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const { option_id } = req.body;
+  if (!option_id) {
+    const err: ApiError = new Error('option_id requis');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const pub = await db.oneOrNone(
+    `SELECT id, type_publication FROM publications WHERE id = $1 AND is_archived = FALSE`,
+    [req.params.id]
+  );
+  if (!pub || pub.type_publication !== 'sondage') {
+    const err: ApiError = new Error('Sondage introuvable');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const option = await db.oneOrNone(
+    `SELECT id FROM sondage_options WHERE id = $1 AND publication_id = $2`,
+    [option_id, req.params.id]
+  );
+  if (!option) {
+    const err: ApiError = new Error('Option invalide');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  await db.none(
+    `INSERT INTO sondage_votes (publication_id, option_id, user_id) VALUES ($1,$2,$3)
+     ON CONFLICT (publication_id, user_id) DO UPDATE SET option_id = EXCLUDED.option_id`,
+    [req.params.id, option_id, req.user.id]
+  );
+
+  res.json({ success: true, message: 'Vote enregistré' });
+});
+
+/** POST /api/publications/:id/participer — « Je participe » */
+const participer = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    const err: ApiError = new Error('Authentification requise');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const pub = await db.oneOrNone(
+    `SELECT id, titre, commune_id, participation_active, type_publication FROM publications
+     WHERE id = $1 AND is_archived = FALSE`,
+    [req.params.id]
+  );
+  if (!pub || (!pub.participation_active && pub.type_publication !== 'participation')) {
+    const err: ApiError = new Error('Participation non disponible');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  await db.none(
+    `INSERT INTO publication_participants (publication_id, user_id) VALUES ($1,$2)
+     ON CONFLICT DO NOTHING`,
+    [req.params.id, req.user.id]
+  );
+
+  let groupe = await db.oneOrNone(`SELECT id FROM groupes_entraide WHERE publication_id = $1`, [req.params.id]);
+
+  if (!groupe) {
+    groupe = await db.one(
+      `INSERT INTO groupes_entraide (publication_id, commune_id, nom, responsable_id, representant_police, expires_at)
+       VALUES ($1,$2,$3,$4,$5, CURRENT_TIMESTAMP + INTERVAL '30 days')
+       RETURNING id`,
+      [
+        req.params.id,
+        pub.commune_id,
+        `Entraide — ${pub.titre}`.slice(0, 255),
+        null,
+        req.body.representant_police || null
+      ]
+    );
+  }
+
+  await db.none(
+    `INSERT INTO groupe_entraide_membres (groupe_id, user_id, role_membre) VALUES ($1,$2,'participant')
+     ON CONFLICT DO NOTHING`,
+    [groupe.id, req.user.id]
+  );
+
+  res.json({
+    success: true,
+    message: 'Participation enregistrée',
+    data: { groupe_entraide_id: groupe.id }
+  });
+});
+
+/** GET /api/publications/:id/participants */
+const getParticipants = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const count = await db.one(
+    `SELECT COUNT(*)::int AS total FROM publication_participants WHERE publication_id = $1`,
+    [req.params.id]
+  );
+  res.json({ success: true, data: { total: count.total } });
+});
+
+/** POST /api/publications/:id/republier — Mise à jour avant/après (1×/jour/personne) */
+const republierSchema = Joi.object({
+  contenu: Joi.string().min(5).required(),
+  statut_mise_a_jour: Joi.string().max(100).required()
+});
+
+const republier = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    const err: ApiError = new Error('Authentification requise');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const origine = await db.oneOrNone(
+    `SELECT * FROM publications WHERE id = $1 AND is_archived = FALSE`,
+    [req.params.id]
+  );
+  if (!origine) {
+    const err: ApiError = new Error('Publication introuvable');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const deja = await db.oneOrNone(
+    `SELECT id FROM publication_republications
+     WHERE publication_origine_id = $1 AND auteur_id = $2 AND DATE(created_at) = CURRENT_DATE`,
+    [req.params.id, req.user.id]
+  );
+  if (deja) {
+    const err: ApiError = new Error('Republication limitée à une fois par jour pour cette publication');
+    err.statusCode = 429;
+    throw err;
+  }
+
+  const { contenu, statut_mise_a_jour } = req.body;
+
+  const result = await db.tx(async (t) => {
+    const miseAJour = await t.one(
+      `INSERT INTO publications
+         (creator_id, titre, contenu, categorie, type_publication, portee, quartier_id, commune_id,
+          parent_publication_id, statut_mise_a_jour, is_officielle, moderation_statut)
+       VALUES ($1,$2,$3,$4::publication_categorie,'mise_a_jour',$5::publication_portee,$6,$7,$8,$9,$10,'approuve')
+       RETURNING *`,
+      [
+        req.user!.id,
+        `${origine.titre} — Mise à jour`,
+        contenu,
+        origine.categorie,
+        origine.portee,
+        origine.quartier_id,
+        origine.commune_id,
+        origine.id,
+        statut_mise_a_jour,
+        origine.is_officielle
+      ]
+    );
+
+    await t.none(
+      `INSERT INTO publication_republications
+         (publication_origine_id, publication_mise_a_jour_id, auteur_id, statut_mise_a_jour, contenu_mise_a_jour)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [origine.id, miseAJour.id, req.user!.id, statut_mise_a_jour, contenu]
+    );
+
+    return miseAJour;
+  });
+
+  res.status(201).json({ success: true, message: 'Mise à jour publiée', data: result });
+});
+
 router.get('/', optionalAuthenticate, listPublications);
+router.get('/:id/sondage', optionalAuthenticate, getSondageResults);
+router.post('/:id/sondage/voter', authenticate, checkAccountStatus, voteSondage);
+router.post('/:id/participer', authenticate, checkAccountStatus, participer);
+router.get('/:id/participants', optionalAuthenticate, getParticipants);
+router.post('/:id/republier', authenticate, checkAccountStatus, validate(republierSchema), republier);
 router.get('/:id', optionalAuthenticate, getPublication);
 router.post('/', authenticate, conditionalPublicationPhoto, validate(createSchema), createPublication);
 router.delete('/:id', authenticate, deletePublication);

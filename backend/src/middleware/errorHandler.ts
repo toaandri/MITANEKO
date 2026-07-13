@@ -91,6 +91,54 @@ export const authenticate = (
   }
 };
 
+/** Bloque les comptes suspendus ou bannis (à placer après authenticate) */
+export const checkAccountStatus = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    next();
+    return;
+  }
+
+  try {
+    const { db } = await import('@config/database.js');
+    const row = await db.oneOrNone(
+      `SELECT status_compte, suspendu_jusqu_a FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (!row) {
+      return res.status(401).json({ success: false, message: 'Utilisateur introuvable' });
+    }
+
+    if (row.status_compte === 'banni') {
+      return res.status(403).json({ success: false, message: 'Compte banni définitivement' });
+    }
+
+    if (row.status_compte === 'suspendu') {
+      if (row.suspendu_jusqu_a && new Date(row.suspendu_jusqu_a) <= new Date()) {
+        await db.none(
+          `UPDATE users SET status_compte = 'actif', suspendu_jusqu_a = NULL WHERE id = $1`,
+          [req.user.id]
+        );
+        next();
+        return;
+      }
+      return res.status(403).json({
+        success: false,
+        message: 'Compte suspendu',
+        suspendu_jusqu_a: row.suspendu_jusqu_a
+      });
+    }
+
+    next();
+  } catch {
+    next();
+  }
+};
+
 // ==========================================
 // Authorization Middleware
 // ==========================================

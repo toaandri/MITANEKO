@@ -60,6 +60,20 @@ CREATE TYPE publication_categorie AS ENUM (
 
 CREATE TYPE publication_portee AS ENUM ('fokontany', 'commune', 'securite_zone');
 
+CREATE TYPE publication_type AS ENUM (
+  'standard', 'sondage', 'officielle', 'participation', 'mise_a_jour'
+);
+
+CREATE TYPE moderation_entity_type AS ENUM ('publication', 'commentaire', 'signalement');
+
+CREATE TYPE moderation_statut AS ENUM (
+  'en_attente', 'approuve', 'supprime', 'suspendu_auteur'
+);
+
+CREATE TYPE sanction_type AS ENUM ('avertissement', 'suspension', 'bannissement');
+
+CREATE TYPE rapport_statut AS ENUM ('brouillon', 'soumis', 'publie', 'rejete');
+
 -- ============================================
 -- 2. COMMUNES
 -- ============================================
@@ -139,6 +153,8 @@ CREATE TABLE users (
   preferences_notifications JSONB DEFAULT '{"email": true, "push": true, "sms": false}',
   dernier_acces TIMESTAMP,
   status_compte VARCHAR(50) DEFAULT 'actif',
+  suspendu_jusqu_a TIMESTAMP,
+  nb_sanctions INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -187,6 +203,8 @@ CREATE TABLE groupe_communautes (
   nom VARCHAR(255) NOT NULL,
   slug VARCHAR(255) NOT NULL,
   description TEXT,
+  moderateur_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  type_groupe VARCHAR(50) DEFAULT 'permanent',
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -205,17 +223,33 @@ CREATE TABLE publications (
   titre VARCHAR(200) NOT NULL,
   contenu TEXT NOT NULL,
   categorie publication_categorie NOT NULL,
+  type_publication publication_type NOT NULL DEFAULT 'standard',
   portee publication_portee NOT NULL DEFAULT 'fokontany',
   quartier_id UUID REFERENCES quartiers(id) ON DELETE CASCADE,
   commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
   groupe_communaute_id UUID REFERENCES groupe_communautes(id) ON DELETE SET NULL,
+  parent_publication_id UUID REFERENCES publications(id) ON DELETE SET NULL,
+  statut_mise_a_jour VARCHAR(100),
   localisation GEOGRAPHY(POINT, 4326),
   adresse VARCHAR(500),
   photo_url TEXT,
+  date_evenement TIMESTAMP,
+  is_officielle BOOLEAN DEFAULT FALSE,
+  is_epinglee BOOLEAN DEFAULT FALSE,
+  epinglee_at TIMESTAMP,
+  epinglee_par UUID REFERENCES users(id) ON DELETE SET NULL,
+  participation_active BOOLEAN DEFAULT FALSE,
+  moderation_statut moderation_statut DEFAULT 'approuve',
+  ia_result JSONB,
   is_archived BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_publications_type ON publications(type_publication);
+CREATE INDEX idx_publications_parent ON publications(parent_publication_id);
+CREATE INDEX idx_publications_epinglee ON publications(is_epinglee) WHERE is_epinglee = TRUE;
+CREATE INDEX idx_publications_moderation ON publications(moderation_statut);
 
 CREATE INDEX idx_publications_quartier ON publications(quartier_id);
 CREATE INDEX idx_publications_commune ON publications(commune_id);
@@ -224,6 +258,200 @@ CREATE INDEX idx_publications_portee ON publications(portee);
 CREATE INDEX idx_publications_groupe ON publications(groupe_communaute_id);
 CREATE INDEX idx_publications_localisation ON publications USING GIST(localisation);
 CREATE INDEX idx_publications_created ON publications(created_at DESC);
+
+-- ============================================
+-- 7b. SONDAGES (options + votes)
+-- ============================================
+
+CREATE TABLE sondage_options (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  publication_id UUID NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+  libelle VARCHAR(255) NOT NULL,
+  position INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_sondage_options_publication ON sondage_options(publication_id);
+
+CREATE TABLE sondage_votes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  publication_id UUID NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+  option_id UUID NOT NULL REFERENCES sondage_options(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(publication_id, user_id)
+);
+
+CREATE INDEX idx_sondage_votes_publication ON sondage_votes(publication_id);
+
+-- ============================================
+-- 7c. PARTICIPATION « Je participe »
+-- ============================================
+
+CREATE TABLE publication_participants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  publication_id UUID NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(publication_id, user_id)
+);
+
+CREATE INDEX idx_publication_participants_pub ON publication_participants(publication_id);
+
+-- ============================================
+-- 7d. GROUPES D'ENTRAIDE TEMPORAIRES
+-- ============================================
+
+CREATE TABLE groupes_entraide (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  publication_id UUID NOT NULL UNIQUE REFERENCES publications(id) ON DELETE CASCADE,
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  nom VARCHAR(255) NOT NULL,
+  responsable_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  representant_police VARCHAR(255),
+  is_actif BOOLEAN DEFAULT TRUE,
+  expires_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_groupes_entraide_commune ON groupes_entraide(commune_id);
+
+CREATE TABLE groupe_entraide_membres (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  groupe_id UUID NOT NULL REFERENCES groupes_entraide(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_membre VARCHAR(50) DEFAULT 'participant',
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(groupe_id, user_id)
+);
+
+CREATE TABLE groupe_entraide_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  groupe_id UUID NOT NULL REFERENCES groupes_entraide(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  contenu TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_groupe_entraide_messages_groupe ON groupe_entraide_messages(groupe_id, created_at DESC);
+
+-- ============================================
+-- 7e. MEMBRES DES GROUPES COMMUNAUTÉ MODÉRÉS
+-- ============================================
+
+CREATE TABLE groupe_communaute_membres (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  groupe_communaute_id UUID NOT NULL REFERENCES groupe_communautes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_membre VARCHAR(50) DEFAULT 'membre',
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(groupe_communaute_id, user_id)
+);
+
+-- ============================================
+-- 7f. FILE DE MODÉRATION (censure)
+-- ============================================
+
+CREATE TABLE moderation_queue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  entity_type moderation_entity_type NOT NULL,
+  entity_id UUID NOT NULL,
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  signale_par UUID REFERENCES users(id) ON DELETE SET NULL,
+  raison TEXT,
+  ia_result JSONB,
+  ia_action_recommandee VARCHAR(50),
+  statut moderation_statut DEFAULT 'en_attente',
+  action_prise VARCHAR(100),
+  traite_par UUID REFERENCES users(id) ON DELETE SET NULL,
+  date_traitement TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_moderation_queue_commune ON moderation_queue(commune_id, statut);
+CREATE INDEX idx_moderation_queue_entity ON moderation_queue(entity_type, entity_id);
+
+-- ============================================
+-- 7g. SANCTIONS UTILISATEURS
+-- ============================================
+
+CREATE TABLE sanctions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  type sanction_type NOT NULL,
+  duree_jours INTEGER,
+  expire_le TIMESTAMP,
+  motif TEXT NOT NULL,
+  sanctionne_par UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  entity_type moderation_entity_type,
+  entity_id UUID,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_sanctions_user ON sanctions(user_id);
+CREATE INDEX idx_sanctions_commune ON sanctions(commune_id);
+
+-- ============================================
+-- 7h. REPUBLICATIONS (limite 1/jour/personne/publication)
+-- ============================================
+
+CREATE TABLE publication_republications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  publication_origine_id UUID NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+  publication_mise_a_jour_id UUID NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+  auteur_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  statut_mise_a_jour VARCHAR(100),
+  contenu_mise_a_jour TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_republications_origine ON publication_republications(publication_origine_id);
+CREATE INDEX idx_republications_auteur_date ON publication_republications(auteur_id, created_at DESC);
+
+-- ============================================
+-- 7i. RAPPORTS DE PERFORMANCE (commune → admin)
+-- ============================================
+
+CREATE TABLE rapports_performance (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  commune_id UUID NOT NULL REFERENCES communes(id) ON DELETE CASCADE,
+  soumis_par UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  titre VARCHAR(255) NOT NULL,
+  contenu TEXT,
+  periode_debut DATE NOT NULL,
+  periode_fin DATE NOT NULL,
+  indicateurs JSONB NOT NULL DEFAULT '{}',
+  nb_publications INTEGER DEFAULT 0,
+  nb_utilisateurs_actifs INTEGER DEFAULT 0,
+  nb_votes_sondages INTEGER DEFAULT 0,
+  statut rapport_statut DEFAULT 'brouillon',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_rapports_commune ON rapports_performance(commune_id, statut);
+
+-- ============================================
+-- 7j. MÉTRIQUES PUBLIQUES (admin → site public)
+-- ============================================
+
+CREATE TABLE metriques_publiques (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  titre VARCHAR(255) NOT NULL,
+  contenu TEXT NOT NULL,
+  commune_id UUID REFERENCES communes(id) ON DELETE SET NULL,
+  rapport_id UUID REFERENCES rapports_performance(id) ON DELETE SET NULL,
+  indicateurs JSONB NOT NULL DEFAULT '{}',
+  publie_par UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  is_visible BOOLEAN DEFAULT FALSE,
+  date_publication TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_metriques_publiques_visible ON metriques_publiques(is_visible, date_publication DESC);
 
 -- ============================================
 -- 8. SIGNALEMENTS
@@ -513,6 +741,15 @@ CREATE TRIGGER trigger_groupe_communautes_updated BEFORE UPDATE ON groupe_commun
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 CREATE TRIGGER trigger_publications_updated BEFORE UPDATE ON publications
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER trigger_groupes_entraide_updated BEFORE UPDATE ON groupes_entraide
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER trigger_rapports_performance_updated BEFORE UPDATE ON rapports_performance
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER trigger_metriques_publiques_updated BEFORE UPDATE ON metriques_publiques
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 CREATE TRIGGER trigger_signalements_updated BEFORE UPDATE ON signalements

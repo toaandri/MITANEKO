@@ -143,6 +143,10 @@ export interface Commentaire {
 export type PublicationCategorie = 'securite' | 'entraide' | 'hygiene' | 'communaute' | 'conseil' | 'autre';
 export type PublicationPortee = 'fokontany' | 'commune' | 'securite_zone';
 export type TokenType = 'inscription' | 'migration';
+export type PublicationType = 'standard' | 'sondage' | 'officielle' | 'participation' | 'mise_a_jour';
+export type ModerationStatut = 'en_attente' | 'approuve' | 'supprime' | 'suspendu_auteur';
+export type SanctionType = 'avertissement' | 'suspension' | 'bannissement';
+export type RapportStatut = 'brouillon' | 'soumis' | 'publie' | 'rejete';
 
 export interface RegistrationToken {
   id: string;
@@ -177,16 +181,24 @@ export interface Publication {
   titre: string;
   contenu: string;
   categorie: PublicationCategorie;
+  type_publication?: PublicationType;
   portee: PublicationPortee;
   quartier_id?: string;
   commune_id: string;
   groupe_communaute_id?: string;
+  parent_publication_id?: string;
+  statut_mise_a_jour?: string;
   localisation?: {
     type: 'Point';
     coordinates: [number, number];
   };
   adresse?: string;
   photo_url?: string;
+  date_evenement?: Date;
+  is_officielle?: boolean;
+  is_epinglee?: boolean;
+  participation_active?: boolean;
+  moderation_statut?: ModerationStatut;
   created_at: Date;
   updated_at: Date;
 }
