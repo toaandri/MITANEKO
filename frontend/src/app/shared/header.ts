@@ -12,6 +12,7 @@ import {
   heroVideoCamera,
   heroShoppingBag,
   heroUser,
+  heroMap, // <-- Icône Carte ajoutée
 } from '@ng-icons/heroicons/outline';
 import {
   heroHomeSolid,
@@ -21,11 +22,12 @@ import {
 
 @Component({
   selector: 'app-header',
+  standalone: true,
   imports: [RouterLink, RouterLinkActive, NgIcon],
   viewProviders: [provideIcons({
     heroHome, heroUserGroup, heroBell, heroMagnifyingGlass,
     heroBars3, heroChatBubbleLeftEllipsis, heroPlusCircle,
-    heroVideoCamera, heroShoppingBag, heroUser,
+    heroVideoCamera, heroShoppingBag, heroUser, heroMap,
     heroHomeSolid, heroUserGroupSolid, heroBellSolid,
   })],
   template: `
@@ -50,19 +52,24 @@ import {
 
       <!-- Centre : Nav links (desktop seulement) -->
       <nav class="hidden md:flex items-stretch h-14 gap-1">
-        <a routerLink="/feed" routerLinkActive="text-pink-600 border-b-[3px] border-pink-600" class="relative flex items-center justify-center w-24 lg:w-36 text-gray-500 hover:bg-gray-100 hover:text-pink-500 rounded-lg transition-colors">
+        <a routerLink="/feed" routerLinkActive="text-pink-600 border-b-[3px] border-pink-600" class="relative flex items-center justify-center w-24 lg:w-36 text-gray-500 hover:bg-gray-100 hover:text-pink-500 rounded-lg transition-colors" title="Accueil">
           <ng-icon name="heroHome" class="text-2xl" />
         </a>
-        <a routerLink="/feed" class="relative flex items-center justify-center w-24 lg:w-36 text-gray-500 hover:bg-gray-100 hover:text-pink-500 rounded-lg transition-colors">
+        <a routerLink="/carte" routerLinkActive="text-pink-600 border-b-[3px] border-pink-600" class="relative flex items-center justify-center w-24 lg:w-36 text-gray-500 hover:bg-gray-100 hover:text-pink-500 rounded-lg transition-colors" title="Carte des signalements">
+          <ng-icon name="heroMap" class="text-2xl" />
+        </a>
+        <a routerLink="/feed" class="relative flex items-center justify-center w-24 lg:w-36 text-gray-500 hover:bg-gray-100 hover:text-pink-500 rounded-lg transition-colors" title="Vidéos">
           <ng-icon name="heroVideoCamera" class="text-2xl" />
         </a>
       </nav>
 
       <!-- Droite : Actions -->
       <div class="flex items-center gap-1 justify-end">
-        <button class="hidden md:flex w-10 h-10 rounded-full bg-gray-100 items-center justify-center hover:bg-gray-200 transition-colors" title="Créer">
+        <!-- BOUTON PLUS DESKTOP -->
+        <a routerLink="/nouvelle-publication" class="hidden md:flex w-10 h-10 rounded-full bg-gray-100 items-center justify-center hover:bg-gray-200 transition-colors" title="Créer">
           <ng-icon name="heroPlusCircle" class="text-gray-800 text-xl" />
-        </button>
+        </a>
+
         <button class="hidden md:flex w-10 h-10 rounded-full bg-gray-100 items-center justify-center hover:bg-gray-200 transition-colors" title="Messagerie">
           <ng-icon name="heroChatBubbleLeftEllipsis" class="text-gray-800 text-xl" />
         </button>
@@ -81,14 +88,19 @@ import {
       <a routerLink="/feed" routerLinkActive="text-pink-600 border-t-2 border-pink-600" class="flex-1 flex flex-col items-center justify-center h-full text-gray-500 transition-colors">
         <ng-icon name="heroHome" class="text-2xl" />
       </a>
-      <a routerLink="/feed" class="flex-1 flex flex-col items-center justify-center h-full text-gray-500 transition-colors">
-        <ng-icon name="heroUserGroup" class="text-2xl" />
+      
+      <!-- BOUTON CARTE MOBILE -->
+      <a routerLink="/carte" routerLinkActive="text-pink-600 border-t-2 border-pink-600" class="flex-1 flex flex-col items-center justify-center h-full text-gray-500 transition-colors">
+        <ng-icon name="heroMap" class="text-2xl" />
       </a>
-      <button class="flex-1 flex flex-col items-center justify-center h-full text-gray-500">
+
+      <!-- BOUTON PLUS MOBILE -->
+      <a routerLink="/nouvelle-publication" class="flex-1 flex flex-col items-center justify-center h-full text-gray-500">
         <div class="w-9 h-9 rounded-md bg-gray-200 flex items-center justify-center">
           <ng-icon name="heroPlusCircle" class="text-gray-800 text-xl" />
         </div>
-      </button>
+      </a>
+
       <button class="flex-1 flex flex-col items-center justify-center h-full text-gray-500">
         <ng-icon name="heroBell" class="text-2xl" />
       </button>

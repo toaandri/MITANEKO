@@ -1,0 +1,25 @@
+<div class="relative w-full h-[calc(100vh-64px)] overflow-hidden flex flex-col">
+
+  <!-- Barre de filtres flottante -->
+  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] w-[92%] max-w-2xl">
+    <div class="bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-100/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
+      
+      <button 
+        *ngFor="let cat of categories"
+        (click)="filterCategory(cat.id)"
+        [ngClass]="selectedCategory === cat.id 
+          ? 'bg-gray-900 text-white shadow-md' 
+          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+        class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200"
+      >
+        <ng-icon [name]="cat.icon" class="text-sm" />
+        <span>{{ cat.label }}</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Carte Leaflet (Plein écran) -->
+  <div id="map-full" class="w-full h-full z-0"></div>
+
+</div>
