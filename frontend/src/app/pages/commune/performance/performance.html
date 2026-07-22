@@ -1,0 +1,86 @@
+<main class="min-h-screen bg-[#f0f2f5] px-4 pt-6 pb-20">
+  <div class="mx-auto max-w-5xl">
+    <app-commune-nav />
+
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-sm font-semibold text-pink-600">Espace Commune</p>
+        <h1 class="text-2xl font-extrabold text-gray-900">Indice de performance</h1>
+        <p class="mt-1 text-sm text-gray-500">
+          {{ commune }} · {{ mois }} — données envoyées à l'admin (sans classement).
+        </p>
+      </div>
+      <span class="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-700">
+        <ng-icon name="heroArrowTrendingUp" />
+        Rapport mensuel
+      </span>
+    </div>
+
+    <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      @for (kpi of kpis; track kpi.label) {
+        <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-pink-100 text-pink-600">
+            <ng-icon [name]="kpi.icon" />
+          </div>
+          <p class="text-2xl font-extrabold text-gray-900">{{ kpi.value }}</p>
+          <p class="text-sm font-semibold text-gray-700">{{ kpi.label }}</p>
+          <p class="mt-1 text-xs text-gray-500">{{ kpi.hint }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="mb-4 grid gap-4 lg:grid-cols-2">
+      <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h2 class="mb-1 text-sm font-bold text-gray-800">Connectés par heure</h2>
+        <p class="mb-4 text-xs text-gray-500">Journée type de la semaine en cours</p>
+        <div class="flex h-40 items-end gap-1">
+          @for (v of heures(); track $index; let i = $index) {
+            <div class="flex flex-1 flex-col items-center gap-1">
+              <div
+                class="w-full rounded-t bg-pink-500/80 hover:bg-pink-600 transition-colors"
+                [style.height.%]="barHeight(v, maxHeure())"
+                [title]="i + 'h : ' + v"
+              ></div>
+              @if (i % 4 === 0) {
+                <span class="text-[10px] text-gray-400">{{ i }}h</span>
+              }
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h2 class="mb-1 text-sm font-bold text-gray-800">Connectés par jour</h2>
+        <p class="mb-4 text-xs text-gray-500">Semaine en cours</p>
+        <div class="flex h-40 items-end gap-3">
+          @for (j of jours; track j.label) {
+            <div class="flex flex-1 flex-col items-center gap-2">
+              <div
+                class="w-full max-w-10 rounded-t bg-gradient-to-t from-pink-600 to-purple-500"
+                [style.height.%]="barHeight(j.value, maxJour)"
+                [title]="j.label + ' : ' + j.value"
+              ></div>
+              <span class="text-xs font-semibold text-gray-600">{{ j.label }}</span>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <h2 class="mb-1 text-sm font-bold text-gray-800">Retours terrain</h2>
+      <p class="mb-4 text-xs text-gray-500">
+        Est-ce que l'app aide vraiment ? Ces indicateurs partent vers l'admin national.
+      </p>
+      <div class="grid gap-3 sm:grid-cols-3">
+        @for (r of retours; track r.theme) {
+          <div class="rounded-xl border border-pink-100 bg-pink-50 p-4">
+            <p class="text-sm font-bold text-gray-900">{{ r.theme }}</p>
+            <p class="mt-1 text-xs font-semibold text-pink-700">Tendance : {{ r.tendance }}</p>
+            <p class="mt-2 text-xs leading-5 text-gray-600">{{ r.detail }}</p>
+          </div>
+        }
+      </div>
+    </section>
+  </div>
+</main>

@@ -273,7 +273,7 @@ export default function SettingsScreen() {
 								value={avatarInput}
 								onChangeText={setAvatarInput}
 								placeholder="URL de la photo de profil"
-								placeholderTextColor="#75808f"
+								placeholderTextColor="#65676b"
 								style={styles.input}
 							/>
 							<View style={styles.rowButtons}>
@@ -291,7 +291,7 @@ export default function SettingsScreen() {
 						value={profileName}
 						onChangeText={setProfileName}
 						placeholder="Nom complet"
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -300,7 +300,7 @@ export default function SettingsScreen() {
 						placeholder="Email"
 						keyboardType="email-address"
 						autoCapitalize="none"
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -308,14 +308,14 @@ export default function SettingsScreen() {
 						onChangeText={setProfilePhone}
 						placeholder="Telephone"
 						keyboardType="phone-pad"
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
 						value={profileBio}
 						onChangeText={setProfileBio}
 						placeholder="Bio"
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						multiline
 						style={[styles.input, styles.multilineInput]}
 					/>
@@ -428,7 +428,7 @@ export default function SettingsScreen() {
 						onValueChange={setAccessHighContrast}
 					/>
 					<ToggleRow
-						label="Indices lecteur d\'ecran"
+						label="Indices lecteur d'ecran"
 						value={accessScreenReaderHints}
 						onValueChange={setAccessScreenReaderHints}
 					/>
@@ -443,7 +443,7 @@ export default function SettingsScreen() {
 						<Text style={styles.accessListItem}>- Tableau de bord citoyen</Text>
 						<Text style={styles.accessListItem}>- Publications personnelles</Text>
 						<Text style={styles.accessListItem}>- Historique des signalements</Text>
-						<Text style={styles.accessListItem}>- Centre d\'aide et support</Text>
+						<Text style={styles.accessListItem}>- Centre d'aide et support</Text>
 					</View>
 				</View>
 
@@ -463,7 +463,7 @@ export default function SettingsScreen() {
 						placeholder="Code de verification (6 chiffres)"
 						keyboardType="number-pad"
 						maxLength={6}
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -471,7 +471,7 @@ export default function SettingsScreen() {
 						onChangeText={setResetPassword}
 						placeholder="Nouveau mot de passe"
 						secureTextEntry
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -479,7 +479,7 @@ export default function SettingsScreen() {
 						onChangeText={setResetPasswordConfirm}
 						placeholder="Confirmer le nouveau mot de passe"
 						secureTextEntry
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<Pressable style={styles.primaryButton} onPress={validateResetPassword}>
@@ -498,7 +498,7 @@ export default function SettingsScreen() {
 						onChangeText={setCurrentPassword}
 						placeholder="Mot de passe actuel"
 						secureTextEntry
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -506,7 +506,7 @@ export default function SettingsScreen() {
 						onChangeText={setNewPassword}
 						placeholder="Nouveau mot de passe"
 						secureTextEntry
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<TextInput
@@ -514,7 +514,7 @@ export default function SettingsScreen() {
 						onChangeText={setNewPasswordConfirm}
 						placeholder="Confirmer le nouveau mot de passe"
 						secureTextEntry
-						placeholderTextColor="#75808f"
+						placeholderTextColor="#65676b"
 						style={styles.input}
 					/>
 					<Pressable style={styles.primaryButton} onPress={updateCurrentPassword}>
@@ -601,7 +601,12 @@ function ToggleRow({
 	return (
 		<View style={styles.toggleRow}>
 			<Text style={styles.toggleText}>{label}</Text>
-			<Switch value={value} onValueChange={onValueChange} />
+			<Switch
+				value={value}
+				onValueChange={onValueChange}
+				trackColor={{ false: '#d1d5db', true: '#f9a8d4' }}
+				thumbColor={value ? '#db2777' : '#f3f4f6'}
+			/>
 		</View>
 	);
 }
@@ -609,7 +614,7 @@ function ToggleRow({
 const styles = StyleSheet.create({
 	safeArea: {
 		flex: 1,
-		backgroundColor: '#f2f4f7',
+		backgroundColor: '#f0f2f5',
 	},
 	container: {
 		paddingHorizontal: 16,
@@ -620,26 +625,26 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 		fontSize: 30,
 		fontWeight: '800',
-		color: '#101828',
+		color: '#db2777',
 	},
 	pageSubtitle: {
 		marginTop: 4,
 		marginBottom: 4,
 		fontSize: 14,
 		lineHeight: 21,
-		color: '#475467',
+		color: '#65676b',
 	},
 	card: {
 		backgroundColor: '#ffffff',
-		borderRadius: 18,
+		borderRadius: 16,
 		padding: 14,
 		borderWidth: 1,
-		borderColor: '#e4e7ec',
+		borderColor: '#e5e7eb',
 		gap: 10,
 	},
 	logoutCard: {
-		backgroundColor: '#fff5f5',
-		borderRadius: 18,
+		backgroundColor: '#fef2f2',
+		borderRadius: 16,
 		padding: 14,
 		borderWidth: 1,
 		borderColor: '#fecaca',
@@ -648,12 +653,12 @@ const styles = StyleSheet.create({
 	sectionTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#111827',
+		color: '#1c1e21',
 	},
 	sectionDescription: {
 		fontSize: 13,
 		lineHeight: 19,
-		color: '#4b5563',
+		color: '#65676b',
 		marginBottom: 4,
 	},
 	avatarRow: {
@@ -666,8 +671,8 @@ const styles = StyleSheet.create({
 		height: 78,
 		borderRadius: 39,
 		borderWidth: 2,
-		borderColor: '#d0d5dd',
-		backgroundColor: '#e5e7eb',
+		borderColor: '#f9a8d4',
+		backgroundColor: '#f3f4f6',
 	},
 	avatarActions: {
 		flex: 1,
@@ -676,19 +681,19 @@ const styles = StyleSheet.create({
 	input: {
 		width: '100%',
 		borderWidth: 1,
-		borderColor: '#d0d5dd',
+		borderColor: '#e5e7eb',
 		borderRadius: 12,
 		paddingHorizontal: 12,
 		paddingVertical: 11,
-		color: '#101828',
-		backgroundColor: '#ffffff',
+		color: '#1c1e21',
+		backgroundColor: '#f3f4f6',
 	},
 	multilineInput: {
 		minHeight: 76,
 		textAlignVertical: 'top',
 	},
 	primaryButton: {
-		backgroundColor: '#0f766e',
+		backgroundColor: '#db2777',
 		paddingVertical: 12,
 		borderRadius: 12,
 		alignItems: 'center',
@@ -702,8 +707,8 @@ const styles = StyleSheet.create({
 	secondaryButton: {
 		flex: 1,
 		borderWidth: 1,
-		borderColor: '#cbd5e1',
-		backgroundColor: '#f8fafc',
+		borderColor: '#e5e7eb',
+		backgroundColor: '#f3f4f6',
 		borderRadius: 10,
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -712,8 +717,8 @@ const styles = StyleSheet.create({
 	},
 	secondaryButtonFull: {
 		borderWidth: 1,
-		borderColor: '#cbd5e1',
-		backgroundColor: '#f8fafc',
+		borderColor: '#e5e7eb',
+		backgroundColor: '#f3f4f6',
 		borderRadius: 12,
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -721,7 +726,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 10,
 	},
 	secondaryButtonText: {
-		color: '#334155',
+		color: '#374151',
 		fontWeight: '600',
 	},
 	rowButtons: {
@@ -730,62 +735,62 @@ const styles = StyleSheet.create({
 	},
 	selectorField: {
 		borderWidth: 1,
-		borderColor: '#d0d5dd',
+		borderColor: '#e5e7eb',
 		borderRadius: 12,
 		paddingHorizontal: 12,
 		paddingVertical: 10,
-		backgroundColor: '#ffffff',
+		backgroundColor: '#f3f4f6',
 		gap: 5,
 	},
 	selectorLabel: {
 		fontSize: 12,
-		color: '#667085',
+		color: '#65676b',
 	},
 	selectorValue: {
 		fontSize: 15,
-		color: '#111827',
+		color: '#1c1e21',
 		fontWeight: '600',
 	},
 	infoBox: {
 		marginTop: 4,
 		borderRadius: 10,
-		backgroundColor: '#ecfeff',
+		backgroundColor: '#fdf2f8',
 		borderWidth: 1,
-		borderColor: '#a5f3fc',
+		borderColor: '#fbcfe8',
 		padding: 10,
 	},
 	infoText: {
-		color: '#0c4a6e',
+		color: '#9d174d',
 		fontSize: 13,
 		lineHeight: 18,
 	},
 	publicationCard: {
 		borderWidth: 1,
-		borderColor: '#e4e7ec',
+		borderColor: '#e5e7eb',
 		borderRadius: 12,
 		padding: 10,
 		gap: 6,
-		backgroundColor: '#fcfcfd',
+		backgroundColor: '#ffffff',
 	},
 	publicationTitle: {
 		fontSize: 15,
 		fontWeight: '700',
-		color: '#111827',
+		color: '#1c1e21',
 	},
 	publicationMeta: {
 		fontSize: 12,
-		color: '#667085',
+		color: '#65676b',
 	},
 	publicationContent: {
 		fontSize: 13,
 		lineHeight: 18,
-		color: '#374151',
+		color: '#3c4043',
 	},
 	emptyState: {
 		borderRadius: 12,
 		borderWidth: 1,
-		borderColor: '#e4e7ec',
-		backgroundColor: '#f9fafb',
+		borderColor: '#e5e7eb',
+		backgroundColor: '#f3f4f6',
 		padding: 12,
 		gap: 4,
 	},
@@ -795,7 +800,7 @@ const styles = StyleSheet.create({
 		color: '#374151',
 	},
 	emptyStateText: {
-		color: '#4b5563',
+		color: '#65676b',
 		fontSize: 13,
 		lineHeight: 18,
 	},
@@ -807,15 +812,15 @@ const styles = StyleSheet.create({
 	},
 	toggleText: {
 		fontSize: 14,
-		color: '#111827',
+		color: '#1c1e21',
 		flex: 1,
 		paddingRight: 8,
 	},
 	accessList: {
 		marginTop: 6,
 		borderWidth: 1,
-		borderColor: '#dbeafe',
-		backgroundColor: '#eff6ff',
+		borderColor: '#fbcfe8',
+		backgroundColor: '#fdf2f8',
 		borderRadius: 12,
 		padding: 10,
 		gap: 5,
@@ -823,10 +828,10 @@ const styles = StyleSheet.create({
 	accessListTitle: {
 		fontSize: 13,
 		fontWeight: '700',
-		color: '#1e3a8a',
+		color: '#9d174d',
 	},
 	accessListItem: {
-		color: '#1e40af',
+		color: '#be185d',
 		fontSize: 13,
 	},
 	logoutButton: {
@@ -853,12 +858,12 @@ const styles = StyleSheet.create({
 		padding: 14,
 		maxHeight: '70%',
 		borderWidth: 1,
-		borderColor: '#e4e7ec',
+		borderColor: '#e5e7eb',
 	},
 	modalTitle: {
 		fontSize: 17,
 		fontWeight: '700',
-		color: '#111827',
+		color: '#1c1e21',
 		marginBottom: 8,
 	},
 	modalList: {
@@ -867,10 +872,10 @@ const styles = StyleSheet.create({
 	modalOption: {
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: '#f2f4f7',
+		borderBottomColor: '#f0f2f5',
 	},
 	modalOptionText: {
-		color: '#111827',
+		color: '#1c1e21',
 		fontSize: 15,
 	},
 	modalCancel: {

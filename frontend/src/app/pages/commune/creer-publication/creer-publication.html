@@ -1,0 +1,178 @@
+<main class="min-h-screen bg-[#f0f2f5] px-4 pt-6 pb-20">
+  <div class="mx-auto max-w-3xl">
+    <app-commune-nav />
+
+    <div class="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold text-pink-600">Espace Commune</p>
+        <h1 class="text-2xl font-extrabold text-gray-900">Créer une publication</h1>
+        <p class="mt-1 text-sm text-gray-500">
+          Annonce officielle, sondage, avant/après ou republication limitée (1× / personne / jour).
+        </p>
+      </div>
+      <a routerLink="/commune/publications" class="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200">
+        <ng-icon name="heroXMark" class="text-lg" />
+      </a>
+    </div>
+
+    @if (feedback(); as msg) {
+      <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        {{ msg }}
+      </div>
+    }
+
+    <section class="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 text-sm font-bold text-gray-800">Type de publication</h2>
+      <div class="grid gap-2 sm:grid-cols-2">
+        @for (t of types; track t.id) {
+          <button
+            type="button"
+            (click)="setType(t.id)"
+            class="flex items-start gap-3 rounded-xl border p-3 text-left transition-all"
+            [ngClass]="type() === t.id
+              ? 'border-pink-600 bg-pink-50 shadow-sm'
+              : 'border-gray-200 bg-gray-50 hover:bg-gray-100'"
+          >
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-full"
+              [ngClass]="type() === t.id ? 'bg-pink-600 text-white' : 'bg-white text-gray-500'"
+            >
+              <ng-icon [name]="t.icon" class="text-lg" />
+            </div>
+            <div>
+              <p class="text-sm font-bold text-gray-900">{{ t.label }}</p>
+              <p class="text-xs text-gray-500">{{ t.desc }}</p>
+            </div>
+          </button>
+        }
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-5">
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-gray-700">Titre *</label>
+        <input
+          type="text"
+          [(ngModel)]="titre"
+          name="titre"
+          placeholder="Ex: Nettoyage massif des routes — samedi 10h"
+          class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 outline-none focus:bg-white focus:ring-2 focus:ring-pink-500"
+        />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-gray-700">Contenu *</label>
+        <textarea
+          [(ngModel)]="contenu"
+          name="contenu"
+          rows="4"
+          placeholder="Détaillez l'annonce, le contexte ou le message officiel…"
+          class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 outline-none focus:bg-white focus:ring-2 focus:ring-pink-500"
+        ></textarea>
+      </div>
+
+      @if (isOfficielle()) {
+        <div class="space-y-3 rounded-xl border border-pink-100 bg-pink-50 p-4">
+          <label class="flex items-center justify-between gap-3 text-sm font-medium text-gray-800">
+            Bouton « Je participe »
+            <input type="checkbox" [(ngModel)]="boutonJeParticipe" name="boutonJeParticipe" class="h-4 w-4 accent-pink-600" />
+          </label>
+          <label class="flex items-center justify-between gap-3 text-sm font-medium text-gray-800">
+            Ouvrir un groupe de discussion
+            <input type="checkbox" [(ngModel)]="groupeDiscussion" name="groupeDiscussion" class="h-4 w-4 accent-pink-600" />
+          </label>
+          <label class="flex items-center justify-between gap-3 text-sm font-medium text-gray-800">
+            Inclure un représentant de la police
+            <input type="checkbox" [(ngModel)]="avecPolice" name="avecPolice" class="h-4 w-4 accent-pink-600" />
+          </label>
+          <p class="text-xs text-pink-800">
+            Après « Je participe », les citoyens rejoignent le groupe pour organiser lieu, heure et présence.
+          </p>
+        </div>
+      }
+
+      @if (isSondage()) {
+        <div class="space-y-3">
+          <div>
+            <label class="mb-1 block text-sm font-semibold text-gray-700">Question du sondage *</label>
+            <input
+              type="text"
+              [(ngModel)]="sondageQuestion"
+              name="sondageQuestion"
+              placeholder="Quel jour préférez-vous pour le passage du camion poubelle ?"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-pink-500"
+            />
+          </div>
+          <div class="space-y-2">
+            <p class="text-sm font-semibold text-gray-700">Options de réponse</p>
+            @for (opt of options; track $index; let i = $index) {
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  [(ngModel)]="options[i]"
+                  [name]="'opt' + i"
+                  class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-500"
+                />
+                <button type="button" (click)="removeOption(i)" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600">
+                  Retirer
+                </button>
+              </div>
+            }
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="nouvelleOption"
+                name="nouvelleOption"
+                placeholder="Nouvelle option"
+                class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-500"
+              />
+              <button type="button" (click)="addOption()" class="rounded-xl bg-pink-600 px-4 py-2 text-sm font-bold text-white hover:bg-pink-700">
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (isAvantApres()) {
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-semibold text-gray-700">Photo / lien AVANT</label>
+            <input type="text" [(ngModel)]="avantUrl" name="avantUrl" placeholder="URL image avant" class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:ring-2 focus:ring-pink-500" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-semibold text-gray-700">Photo / lien APRÈS</label>
+            <input type="text" [(ngModel)]="apresUrl" name="apresUrl" placeholder="URL image après" class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:ring-2 focus:ring-pink-500" />
+          </div>
+        </div>
+      }
+
+      @if (isRepublication()) {
+        <div class="space-y-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
+          <div>
+            <label class="mb-1 block text-sm font-semibold text-gray-700">ID publication source</label>
+            <input type="text" [(ngModel)]="republicationSourceId" name="republicationSourceId" placeholder="ex: pub-128" class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-pink-500" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-semibold text-gray-700">Statut d'avancée</label>
+            <select [(ngModel)]="statutAvancee" name="statutAvancee" class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-pink-500">
+              <option value="evolue">La situation a évolué</option>
+              <option value="retrouvee">Personne / objet retrouvé(e)</option>
+              <option value="aucun_changement">Aucun changement — republier</option>
+            </select>
+          </div>
+          <p class="text-xs text-amber-800">Limite anti-abus : 1 republication par publication, par personne, par jour.</p>
+        </div>
+      }
+
+      <button
+        type="button"
+        (click)="publier()"
+        class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 py-3 text-sm font-bold text-white hover:bg-pink-700 transition-colors"
+      >
+        <ng-icon name="heroCheckCircle" class="text-lg" />
+        Publier
+      </button>
+    </section>
+  </div>
+</main>

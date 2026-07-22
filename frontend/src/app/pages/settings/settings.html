@@ -1,0 +1,374 @@
+<main class="min-h-screen bg-[#f0f2f5] px-4 pt-6 pb-20">
+  <div class="mx-auto max-w-2xl space-y-4">
+
+    <!-- En-tête -->
+    <div>
+      <h1 class="text-3xl font-extrabold text-pink-600">Parametres</h1>
+      <p class="mt-1 text-sm leading-6 text-gray-500">
+        Personnalisez votre compte, votre securite et vos preferences locales.
+      </p>
+    </div>
+
+    <!-- Feedback -->
+    <div
+      *ngIf="feedback() as fb"
+      class="rounded-xl border px-4 py-3 text-sm"
+      [ngClass]="{
+        'bg-green-50 border-green-200 text-green-700': fb.type === 'success',
+        'bg-red-50 border-red-200 text-red-600': fb.type === 'error',
+        'bg-pink-50 border-pink-200 text-pink-800': fb.type === 'info'
+      }"
+    >
+      {{ fb.message }}
+    </div>
+
+    <!-- Profil -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroUser" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Profil</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Modifiez votre identite, votre photo et vos informations de contact.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4 items-start">
+        <img
+          [src]="avatarUrl()"
+          alt="Avatar"
+          class="h-20 w-20 rounded-full border-2 border-pink-300 bg-gray-100 object-cover"
+        />
+        <div class="flex-1 w-full space-y-2">
+          <input
+            type="text"
+            [(ngModel)]="avatarInput"
+            name="avatarInput"
+            placeholder="URL de la photo de profil"
+            class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+          />
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              (click)="applyAvatarFromInput()"
+              class="flex-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              Appliquer URL
+            </button>
+            <button
+              type="button"
+              (click)="useNextPresetAvatar()"
+              class="flex-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              Avatar suivant
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <input
+        type="text"
+        [(ngModel)]="profileName"
+        name="profileName"
+        placeholder="Nom complet"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="email"
+        [(ngModel)]="profileEmail"
+        name="profileEmail"
+        placeholder="Email"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="tel"
+        [(ngModel)]="profilePhone"
+        name="profilePhone"
+        placeholder="Telephone"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <textarea
+        [(ngModel)]="profileBio"
+        name="profileBio"
+        rows="3"
+        placeholder="Bio"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white resize-none"
+      ></textarea>
+      <button
+        type="button"
+        (click)="saveProfile()"
+        class="w-full rounded-xl bg-pink-600 py-3 text-sm font-bold text-white hover:bg-pink-700 transition-colors"
+      >
+        Enregistrer le profil
+      </button>
+    </section>
+
+    <!-- Localisation -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroLanguage" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Langue, Region, Commune, Fokontany</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Ces choix influencent les contenus affiches dans vos publications.
+      </p>
+
+      <button type="button" (click)="openLanguagePicker()" class="selector-field">
+        <span class="text-xs text-gray-500">Langue</span>
+        <span class="flex items-center justify-between font-semibold text-gray-900">
+          {{ selectedLanguage() }}
+          <ng-icon name="heroChevronDown" class="text-gray-400" />
+        </span>
+      </button>
+
+      <button type="button" (click)="openRegionPicker()" class="selector-field">
+        <span class="text-xs text-gray-500">Region</span>
+        <span class="flex items-center justify-between font-semibold text-gray-900">
+          {{ selectedRegion() }}
+          <ng-icon name="heroChevronDown" class="text-gray-400" />
+        </span>
+      </button>
+
+      <button type="button" (click)="openCommunePicker()" class="selector-field">
+        <span class="text-xs text-gray-500">Commune</span>
+        <span class="flex items-center justify-between font-semibold text-gray-900">
+          {{ selectedCommune() }}
+          <ng-icon name="heroChevronDown" class="text-gray-400" />
+        </span>
+      </button>
+
+      <button type="button" (click)="openFokontanyPicker()" class="selector-field">
+        <span class="text-xs text-gray-500">Fokontany</span>
+        <span class="flex items-center justify-between font-semibold text-gray-900">
+          {{ selectedFokontany() }}
+          <ng-icon name="heroChevronDown" class="text-gray-400" />
+        </span>
+      </button>
+
+      <div class="rounded-xl border border-pink-200 bg-pink-50 p-3 text-sm text-pink-900">
+        Affichage actif: {{ selectedLanguage() }} - {{ selectedRegion() }} /
+        {{ selectedCommune() }} / {{ selectedFokontany() }}
+      </div>
+    </section>
+
+    <!-- Publications -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroDocumentText" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Publications</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Liste de vos publications selon la langue et la localisation selectionnees.
+      </p>
+
+      <div
+        *ngIf="filteredPublications().length === 0"
+        class="rounded-xl border border-gray-200 bg-gray-100 p-3 space-y-1"
+      >
+        <p class="text-sm font-bold text-gray-700">Aucune publication correspondante</p>
+        <p class="text-sm text-gray-500">
+          Essayez de changer la langue, la region ou la commune pour afficher vos contenus deja publies.
+        </p>
+      </div>
+
+      <article
+        *ngFor="let item of filteredPublications()"
+        class="rounded-xl border border-gray-200 bg-white p-3 space-y-1"
+      >
+        <h3 class="text-sm font-bold text-gray-900">{{ item.title }}</h3>
+        <p class="text-xs text-gray-500">
+          {{ item.date }} • {{ item.language }} • {{ item.region }} / {{ item.commune }}
+        </p>
+        <p class="text-sm text-gray-700 leading-5">{{ item.content }}</p>
+      </article>
+    </section>
+
+    <!-- Accessibilité -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroEye" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Accessibilite</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Configurez votre confort visuel et les elements auxquels vous avez acces.
+      </p>
+
+      <label class="toggle-row">
+        <span>Texte agrandi</span>
+        <input type="checkbox" [(ngModel)]="accessLargeText" name="accessLargeText" class="toggle" />
+      </label>
+      <label class="toggle-row">
+        <span>Contraste eleve</span>
+        <input type="checkbox" [(ngModel)]="accessHighContrast" name="accessHighContrast" class="toggle" />
+      </label>
+      <label class="toggle-row">
+        <span>Indices lecteur d'ecran</span>
+        <input type="checkbox" [(ngModel)]="accessScreenReaderHints" name="accessScreenReaderHints" class="toggle" />
+      </label>
+      <label class="toggle-row">
+        <span>Reduire les animations</span>
+        <input type="checkbox" [(ngModel)]="accessReduceMotion" name="accessReduceMotion" class="toggle" />
+      </label>
+
+      <div class="rounded-xl border border-pink-200 bg-pink-50 p-3 space-y-1">
+        <p class="text-sm font-bold text-pink-900">Elements accessibles</p>
+        <p class="text-sm text-pink-800">- Tableau de bord citoyen</p>
+        <p class="text-sm text-pink-800">- Publications personnelles</p>
+        <p class="text-sm text-pink-800">- Historique des signalements</p>
+        <p class="text-sm text-pink-800">- Centre d'aide et support</p>
+      </div>
+    </section>
+
+    <!-- Reset password with code -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroKey" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Changement de mot de passe (code 6 chiffres)</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Demandez un code, saisissez-le puis validez votre nouveau mot de passe.
+      </p>
+
+      <button
+        type="button"
+        (click)="sendVerificationCode()"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+      >
+        Recevoir un code a 6 chiffres
+      </button>
+
+      <input
+        type="text"
+        [ngModel]="enteredCode"
+        (input)="onCodeInput($event)"
+        name="enteredCode"
+        maxlength="6"
+        placeholder="Code de verification (6 chiffres)"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="password"
+        [(ngModel)]="resetPassword"
+        name="resetPassword"
+        placeholder="Nouveau mot de passe"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="password"
+        [(ngModel)]="resetPasswordConfirm"
+        name="resetPasswordConfirm"
+        placeholder="Confirmer le nouveau mot de passe"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <button
+        type="button"
+        (click)="validateResetPassword()"
+        class="w-full rounded-xl bg-pink-600 py-3 text-sm font-bold text-white hover:bg-pink-700 transition-colors"
+      >
+        Valider le changement
+      </button>
+    </section>
+
+    <!-- Mot de passe -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroLockClosed" class="text-pink-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Mot de passe</h2>
+      </div>
+      <p class="text-sm text-gray-500">
+        Modifiez votre mot de passe actuel et gerez la securite du compte.
+      </p>
+
+      <input
+        type="password"
+        [(ngModel)]="currentPassword"
+        name="currentPassword"
+        placeholder="Mot de passe actuel"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="password"
+        [(ngModel)]="newPassword"
+        name="newPassword"
+        placeholder="Nouveau mot de passe"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <input
+        type="password"
+        [(ngModel)]="newPasswordConfirm"
+        name="newPasswordConfirm"
+        placeholder="Confirmer le nouveau mot de passe"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+      />
+      <button
+        type="button"
+        (click)="updateCurrentPassword()"
+        class="w-full rounded-xl bg-pink-600 py-3 text-sm font-bold text-white hover:bg-pink-700 transition-colors"
+      >
+        Mettre a jour le mot de passe
+      </button>
+      <button
+        type="button"
+        (click)="disconnectOtherDevices()"
+        class="w-full rounded-xl border border-gray-200 bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+      >
+        Deconnecter les autres appareils
+      </button>
+    </section>
+
+    <!-- Déconnexion -->
+    <section class="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <ng-icon name="heroArrowRightOnRectangle" class="text-red-600 text-xl" />
+        <h2 class="text-lg font-bold text-gray-900">Deconnexion</h2>
+      </div>
+      <p class="text-sm text-gray-500">Quittez votre session de maniere securisee.</p>
+      <button
+        type="button"
+        (click)="logout()"
+        class="w-full rounded-xl bg-red-600 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+      >
+        Se deconnecter
+      </button>
+    </section>
+  </div>
+
+  <!-- Picker modal -->
+  <div
+    *ngIf="pickerOpen()"
+    class="fixed inset-0 z-[60] flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-4"
+    (click)="closePicker()"
+  >
+    <div
+      class="w-full max-w-md rounded-t-2xl border border-gray-200 bg-white p-4 sm:rounded-2xl max-h-[70vh] flex flex-col"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-900">{{ pickerTitle() }}</h3>
+        <button
+          type="button"
+          (click)="closePicker()"
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+        >
+          <ng-icon name="heroXMark" />
+        </button>
+      </div>
+      <div class="overflow-y-auto">
+        <button
+          type="button"
+          *ngFor="let option of pickerOptions()"
+          (click)="selectPickerOption(option)"
+          class="w-full border-b border-gray-100 py-3 text-left text-sm text-gray-900 hover:bg-pink-50 transition-colors"
+        >
+          {{ option }}
+        </button>
+      </div>
+      <button
+        type="button"
+        (click)="closePicker()"
+        class="mt-3 w-full rounded-xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+      >
+        Fermer
+      </button>
+    </div>
+  </div>
+</main>
