@@ -153,7 +153,7 @@ export class NouvellePublication implements AfterViewInit {
       formData.append('photo', this.selectedFile);
     }
 
-    this.http.post('http://localhost:3000/api/publications', formData).subscribe({
+    this.http.post('/api/publications', formData).subscribe({
       next: () => {
         this.isSubmitting = false;
         this.router.navigate(['/feed']);

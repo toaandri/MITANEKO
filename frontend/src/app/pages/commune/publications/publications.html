@@ -10,6 +10,16 @@
       </p>
     </div>
 
+    @if (feedback(); as msg) {
+      <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ msg }}</div>
+    }
+    @if (error(); as err) {
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ err }}</div>
+    }
+    @if (loading()) {
+      <div class="mb-4 rounded-xl bg-white p-6 text-center text-sm text-gray-500">Chargement…</div>
+    }
+
     <div class="mb-4 flex gap-2 overflow-x-auto pb-1">
       @for (f of filtres; track f.id) {
         <button
@@ -70,7 +80,7 @@
             </div>
           }
 
-          @if (pub.type === 'officielle') {
+          @if (pub.type === 'officielle' || pub.type === 'participation' || pub.participationActive) {
             <div class="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="button"

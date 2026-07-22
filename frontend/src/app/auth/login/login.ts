@@ -28,7 +28,7 @@ export class Login {
 
     const { email, password } = this.form.value;
     this.authService.login(email!, password!).subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => this.router.navigateByUrl(this.authService.homeRoute()),
       error: (err) => {
         this.error.set(err.error?.message || 'Identifiants invalides');
         this.loading.set(false);

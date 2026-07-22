@@ -94,7 +94,7 @@ export class CarteComponent implements AfterViewInit {
   }
 
   private loadPublications(): void {
-    this.http.get<Publication[]>('http://localhost:3000/api/publications').subscribe({
+    this.http.get<Publication[]>('/api/publications').subscribe({
       next: (data) => {
         this.allPublications = data.filter(p => p.latitude && p.longitude);
         this.renderMarkers();

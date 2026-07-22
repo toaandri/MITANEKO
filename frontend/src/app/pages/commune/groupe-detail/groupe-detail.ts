@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -11,6 +11,7 @@ import {
   heroShieldCheck,
 } from '@ng-icons/heroicons/outline';
 import { CommuneNav } from '../commune-nav';
+import { CommuneApiService } from '../../../core/api-services';
 
 interface Message {
   id: string;
@@ -36,102 +37,90 @@ interface Message {
     }),
   ],
 })
-export class CommuneGroupeDetail {
-  groupeId = signal('g1');
+export class CommuneGroupeDetail implements OnInit {
+  private route = inject(ActivatedRoute);
+  private communeApi = inject(CommuneApiService);
+
+  groupeId = signal('');
   nouveauMessage = '';
+  loading = signal(true);
+  error = signal<string | null>(null);
 
-  private readonly groupesMeta: Record<
-    string,
-    { nom: string; quartier: string; membres: number; avecPolice: boolean; description: string }
-  > = {
-    g1: {
-      nom: 'Nettoyage Tana 5',
-      quartier: 'Antananarivo V',
-      membres: 64,
-      avecPolice: false,
-      description: 'Organisation du nettoyage : lieu, heure, matériel.',
-    },
-    g2: {
-      nom: 'Rondes Isotry + Police',
-      quartier: 'Isotry',
-      membres: 28,
-      avecPolice: true,
-      description: 'Échanges sur les rondes, présence et horaires avec la police.',
-    },
-    g3: {
-      nom: 'Entraide Analakely',
-      quartier: 'Analakely',
-      membres: 112,
-      avecPolice: false,
-      description: 'Forum d\'entraide du quartier.',
-    },
-    g4: {
-      nom: 'Discussion camion poubelle',
-      quartier: '67Ha',
-      membres: 19,
-      avecPolice: false,
-      description: 'Suite du sondage sur le passage du camion.',
-    },
-  };
+  meta = signal({
+    nom: '',
+    quartier: '',
+    membres: 0,
+    avecPolice: false,
+    description: '',
+  });
 
-  messages = signal<Message[]>([
-    {
-      id: 'm1',
-      auteur: 'Commune',
-      role: 'commune',
-      contenu: 'Bienvenue dans le groupe. Indiquez votre disponibilité et le point de rendez-vous.',
-      heure: '09:12',
-    },
-    {
-      id: 'm2',
-      auteur: 'Miora R.',
-      role: 'citoyen',
-      contenu: 'Je peux venir samedi à 10h près du marché.',
-      heure: '09:18',
-    },
-    {
-      id: 'm3',
-      auteur: 'Police - Agent Ravo',
-      role: 'police',
-      contenu: 'Pour les rondes, on propose un départ à 19h30 au carrefour principal.',
-      heure: '09:25',
-    },
-    {
-      id: 'm4',
-      auteur: 'Hery T.',
-      role: 'citoyen',
-      contenu: 'Je participe. On emmène des lampes de poche ?',
-      heure: '09:31',
-    },
-  ]);
+  messages = signal<Message[]>([]);
+  publications = signal<Array<{ titre: string; contenu: string }>>([]);
 
-  meta = computed(() => this.groupesMeta[this.groupeId()] ?? this.groupesMeta['g1']);
-
-  constructor(route: ActivatedRoute) {
-    const id = route.snapshot.paramMap.get('id') ?? 'g1';
+  ngOnInit() {
+    const id = this.route.snapshot.paramMap.get('id') || '';
     this.groupeId.set(id);
+    if (!id) {
+      this.loading.set(false);
+      this.error.set('Groupe introuvable.');
+      return;
+    }
+
+    this.communeApi.getGroupe(id).subscribe({
+      next: (res) => {
+        const g = res.data;
+        this.meta.set({
+          nom: g.nom,
+          quartier: String(g['commune_nom'] || 'Commune'),
+          membres: Array.isArray(g.membres) ? g.membres.length : Number(g.nb_membres || 0),
+          avecPolice: false,
+          description: g.description || 'Groupe modéré par la commune.',
+        });
+        this.publications.set(
+          (g.publications || []).map((p) => ({
+            titre: String(p['titre'] || ''),
+            contenu: String(p['contenu'] || ''),
+          })),
+        );
+        this.messages.set(
+          (g.membres || []).slice(0, 8).map((m, idx) => ({
+            id: String(m['id'] || idx),
+            auteur: String(m['pseudonyme'] || m['nom'] || 'Membre'),
+            role: 'citoyen',
+            contenu: `Membre du groupe (${m['role_dans_groupe'] || 'membre'}).`,
+            heure: '',
+          })),
+        );
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message || 'Impossible de charger le groupe.');
+      },
+    });
   }
 
+  groupe = computed(() => this.meta());
+
   roleClass(role: Message['role']) {
-    return (
-      {
-        commune: 'bg-pink-100 text-pink-700',
-        citoyen: 'bg-gray-100 text-gray-700',
-        police: 'bg-blue-100 text-blue-700',
-      } as const
-    )[role];
+    const map: Record<Message['role'], string> = {
+      commune: 'bg-pink-100 text-pink-700',
+      citoyen: 'bg-gray-200 text-gray-700',
+      police: 'bg-blue-100 text-blue-700',
+    };
+    return map[role];
   }
 
   envoyer() {
-    const text = this.nouveauMessage.trim();
-    if (!text) return;
+    const texte = this.nouveauMessage.trim();
+    if (!texte) return;
     this.messages.update((list) => [
       ...list,
       {
-        id: `m${Date.now()}`,
-        auteur: 'Vous (Commune)',
+        id: `local-${Date.now()}`,
+        auteur: 'Commune',
         role: 'commune',
-        contenu: text,
+        contenu: texte,
         heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       },
     ]);

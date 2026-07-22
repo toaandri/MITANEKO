@@ -17,8 +17,15 @@
       </a>
     </div>
 
+    @if (feedback(); as msg) {
+      <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ msg }}</div>
+    }
+    @if (error(); as err) {
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ err }}</div>
+    }
+
     <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      @for (kpi of nationaux; track kpi.label) {
+      @for (kpi of nationaux(); track kpi.label) {
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-pink-100 text-pink-600">
             <ng-icon [name]="kpi.icon" />
@@ -32,36 +39,30 @@
     <section class="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div class="mb-4 flex items-center gap-2">
         <ng-icon name="heroChartBar" class="text-pink-600" />
-        <h2 class="text-sm font-bold text-gray-800">Données par région (sans classement)</h2>
+        <h2 class="text-sm font-bold text-gray-800">Communes (sans classement)</h2>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr class="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+              <th class="pb-3 font-semibold">Commune</th>
               <th class="pb-3 font-semibold">Région</th>
               <th class="pb-3 font-semibold">Publications</th>
-              <th class="pb-3 font-semibold">Actifs</th>
-              <th class="pb-3 font-semibold">Insécurité</th>
-              <th class="pb-3 font-semibold">Déchets</th>
+              <th class="pb-3 font-semibold">Citoyens</th>
+              <th class="pb-3 font-semibold">Résolus</th>
             </tr>
           </thead>
           <tbody>
-            @for (r of regions; track r.nom) {
+            @for (r of regions(); track r.nom) {
               <tr class="border-b border-gray-50 text-gray-700">
                 <td class="py-3 font-semibold text-gray-900">{{ r.nom }}</td>
+                <td class="py-3">{{ r.region }}</td>
                 <td class="py-3">{{ r.pubs }}</td>
                 <td class="py-3">{{ r.actifs }}</td>
-                <td class="py-3">
-                  <span class="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-                    {{ r.securite }}
-                  </span>
-                </td>
-                <td class="py-3">
-                  <span class="rounded-full bg-pink-50 px-2.5 py-1 text-xs font-semibold text-pink-700">
-                    {{ r.dechets }}
-                  </span>
-                </td>
+                <td class="py-3">{{ r.resolus }}</td>
               </tr>
+            } @empty {
+              <tr><td colspan="5" class="py-4 text-gray-500">Aucune commune.</td></tr>
             }
           </tbody>
         </table>
@@ -74,14 +75,25 @@
     <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div class="mb-4 flex items-center gap-2">
         <ng-icon name="heroArrowTrendingUp" class="text-pink-600" />
-        <h2 class="text-sm font-bold text-gray-800">Impacts à diffuser (page publique)</h2>
+        <h2 class="text-sm font-bold text-gray-800">Rapports à publier (page publique)</h2>
       </div>
-      <div class="grid gap-3 sm:grid-cols-3">
-        @for (i of impacts; track i.titre) {
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        @for (i of rapports(); track i.id) {
           <div class="rounded-xl border border-pink-100 bg-pink-50 p-4">
+            <p class="text-xs font-semibold text-pink-700">{{ i.commune }}</p>
             <p class="text-sm font-bold text-gray-900">{{ i.titre }}</p>
             <p class="mt-2 text-xs leading-5 text-gray-600">{{ i.detail }}</p>
+            <button
+              type="button"
+              (click)="publierRapport(i.id)"
+              class="mt-3 inline-flex items-center gap-1 rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-pink-700"
+            >
+              <ng-icon name="heroCheckCircle" />
+              Publier
+            </button>
           </div>
+        } @empty {
+          <p class="text-sm text-gray-500">Aucun rapport en attente.</p>
         }
       </div>
     </section>

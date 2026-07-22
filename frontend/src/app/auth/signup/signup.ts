@@ -31,7 +31,7 @@ export class Signup {
 
     const { prenom, nom, email, telephone, password } = this.form.value;
     this.authService.register({ prenom: prenom!, nom: nom!, email: email!, password: password!, telephone: telephone || undefined }).subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => this.router.navigateByUrl(this.authService.homeRoute()),
       error: (err) => {
         this.error.set(err.error?.message || 'Erreur lors de l\'inscription');
         this.loading.set(false);

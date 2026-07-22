@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -10,15 +10,23 @@ import {
   heroArrowPath,
 } from '@ng-icons/heroicons/outline';
 import { CommuneNav } from '../commune-nav';
+import {
+  CommuneApiService,
+  CommunePublication,
+  PublicationsApiService,
+} from '../../../core/api-services';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 
-type PubType = 'officielle' | 'sondage' | 'avant_apres' | 'republication';
+type PubType = 'officielle' | 'sondage' | 'avant_apres' | 'republication' | 'participation' | 'standard';
 
 interface SondageOption {
+  id?: string;
   label: string;
   votes: number;
 }
 
-interface Publication {
+interface PublicationView {
   id: string;
   type: PubType;
   titre: string;
@@ -27,7 +35,8 @@ interface Publication {
   auteur: string;
   participants?: number;
   sondage?: SondageOption[];
-  statut?: string;
+  statut?: string | null;
+  participationActive?: boolean;
 }
 
 @Component({
@@ -47,99 +56,124 @@ interface Publication {
     }),
   ],
 })
-export class CommunePublications {
-  filtre = signal<'toutes' | PubType>('toutes');
+export class CommunePublications implements OnInit {
+  private communeApi = inject(CommuneApiService);
+  private publicationsApi = inject(PublicationsApiService);
 
-  publications = signal<Publication[]>([
-    {
-      id: '1',
-      type: 'officielle',
-      titre: 'Nettoyage massif des routes — samedi 10h',
-      contenu: 'Rendez-vous devant la mairie d\'Analakely. Gants et sacs fournis.',
-      date: '2026-07-20',
-      auteur: 'Commune Antananarivo Renivohitra',
-      participants: 48,
-    },
-    {
-      id: '2',
-      type: 'sondage',
-      titre: 'Passage du camion poubelle',
-      contenu: 'Quel jour préférez-vous pour le passage du camion poubelle ?',
-      date: '2026-07-18',
-      auteur: 'Commune Antananarivo Renivohitra',
-      sondage: [
-        { label: 'Lundi', votes: 42 },
-        { label: 'Mardi', votes: 28 },
-        { label: 'Mercredi', votes: 61 },
-        { label: 'Jeudi', votes: 19 },
-      ],
-    },
-    {
-      id: '3',
-      type: 'officielle',
-      titre: 'Rondes de quartier — unissons-nous',
-      contenu: 'Organisons des rondes avec l\'aide de la police. Cliquez Je participe pour rejoindre le groupe.',
-      date: '2026-07-17',
-      auteur: 'Commune Antananarivo Renivohitra',
-      participants: 23,
-    },
-    {
-      id: '4',
-      type: 'avant_apres',
-      titre: 'Rue Isotry — avant / après nettoyage',
-      contenu: 'Grâce à la mobilisation citoyenne, la rue est redevenue praticable.',
-      date: '2026-07-15',
-      auteur: 'Commune Antananarivo Renivohitra',
-    },
-    {
-      id: '5',
-      type: 'republication',
-      titre: 'On a enfin retrouvé Ann',
-      contenu: 'Mise à jour : la personne recherchée a été retrouvée saine et sauve.',
-      date: '2026-07-14',
-      auteur: 'Citoyen + Commune',
-      statut: 'retrouvee',
-    },
-  ]);
+  filtre = signal<'toutes' | PubType>('toutes');
+  publications = signal<PublicationView[]>([]);
+  loading = signal(true);
+  error = signal<string | null>(null);
+  feedback = signal<string | null>(null);
 
   filtres = [
     { id: 'toutes' as const, label: 'Toutes' },
     { id: 'officielle' as const, label: 'Officielles' },
     { id: 'sondage' as const, label: 'Sondages' },
-    { id: 'avant_apres' as const, label: 'Avant/Après' },
-    { id: 'republication' as const, label: 'Republications' },
+    { id: 'participation' as const, label: 'Participation' },
+    { id: 'republication' as const, label: 'Mises à jour' },
   ];
 
   filtered = computed(() => {
     const f = this.filtre();
     const all = this.publications();
-    return f === 'toutes' ? all : all.filter((p) => p.type === f);
+    if (f === 'toutes') return all;
+    if (f === 'officielle') {
+      return all.filter((p) => p.type === 'officielle' || p.type === 'participation');
+    }
+    if (f === 'republication') {
+      return all.filter((p) => p.type === 'republication' || !!p.statut);
+    }
+    return all.filter((p) => p.type === f);
   });
+
+  ngOnInit() {
+    this.load();
+  }
+
+  load() {
+    this.loading.set(true);
+    this.error.set(null);
+    this.communeApi.feed({ limit: 50 }).subscribe({
+      next: (res) => {
+        const rows = res.data || [];
+        const sondageIds = rows
+          .filter((r) => r.type_publication === 'sondage')
+          .map((r) => r.id);
+
+        const sondageCalls = sondageIds.length
+          ? forkJoin(
+              sondageIds.map((id) =>
+                this.publicationsApi.getSondage(id).pipe(
+                  map((s) => ({ id, options: s.data?.options || [] })),
+                  catchError(() => of({ id, options: [] as SondageOption[] })),
+                ),
+              ),
+            )
+          : of([] as Array<{ id: string; options: SondageOption[] }>);
+
+        sondageCalls.subscribe((sondages) => {
+          const byId = new Map(sondages.map((s) => [s.id, s.options]));
+          this.publications.set(rows.map((r) => this.mapPub(r, byId.get(r.id))));
+          this.loading.set(false);
+        });
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message || 'Impossible de charger le fil.');
+      },
+    });
+  }
+
+  private mapPub(r: CommunePublication, sondage?: SondageOption[]): PublicationView {
+    let type = (r.type_publication || 'standard') as PubType;
+    if (r.parent_publication_id || r.type_publication === 'mise_a_jour') {
+      type = 'republication';
+    }
+    return {
+      id: r.id,
+      type,
+      titre: r.titre,
+      contenu: r.contenu,
+      date: r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR') : '',
+      auteur: r.auteur || 'Commune',
+      participants: r.nb_participants ?? 0,
+      sondage: sondage?.map((o) => ({
+        id: o.id,
+        label: o.label,
+        votes: o.votes ?? 0,
+      })),
+      statut: r.statut_mise_a_jour,
+      participationActive: !!r.participation_active || r.type_publication === 'participation',
+    };
+  }
 
   setFiltre(id: 'toutes' | PubType) {
     this.filtre.set(id);
   }
 
   typeIcon(type: PubType) {
-    return (
-      {
-        officielle: 'heroMegaphone',
-        sondage: 'heroChartBar',
-        avant_apres: 'heroPhoto',
-        republication: 'heroArrowPath',
-      } as const
-    )[type];
+    const map: Record<string, string> = {
+      officielle: 'heroMegaphone',
+      participation: 'heroHandRaised',
+      sondage: 'heroChartBar',
+      avant_apres: 'heroPhoto',
+      republication: 'heroArrowPath',
+      standard: 'heroMegaphone',
+    };
+    return map[type] || 'heroMegaphone';
   }
 
   typeLabel(type: PubType) {
-    return (
-      {
-        officielle: 'Annonce officielle',
-        sondage: 'Sondage',
-        avant_apres: 'Avant / Après',
-        republication: 'Republication',
-      } as const
-    )[type];
+    const map: Record<string, string> = {
+      officielle: 'Annonce officielle',
+      participation: 'Participation',
+      sondage: 'Sondage',
+      avant_apres: 'Avant / Après',
+      republication: 'Republication',
+      standard: 'Publication',
+    };
+    return map[type] || type;
   }
 
   totalVotes(options: SondageOption[]) {
@@ -154,7 +188,17 @@ export class CommunePublications {
     return [...options].sort((a, b) => b.votes - a.votes)[0];
   }
 
-  participer(pub: Publication) {
-    pub.participants = (pub.participants ?? 0) + 1;
+  participer(pub: PublicationView) {
+    this.publicationsApi.participer(pub.id).subscribe({
+      next: () => {
+        pub.participants = (pub.participants ?? 0) + 1;
+        this.feedback.set('Participation enregistrée — groupe d’entraide créé si besoin.');
+        window.setTimeout(() => this.feedback.set(null), 3500);
+      },
+      error: (err) => {
+        this.feedback.set(err.error?.message || 'Participation impossible.');
+        window.setTimeout(() => this.feedback.set(null), 3500);
+      },
+    });
   }
 }

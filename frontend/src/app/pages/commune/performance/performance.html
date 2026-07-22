@@ -16,8 +16,15 @@
       </span>
     </div>
 
+    @if (feedback(); as msg) {
+      <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ msg }}</div>
+    }
+    @if (error(); as err) {
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ err }}</div>
+    }
+
     <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      @for (kpi of kpis; track kpi.label) {
+      @for (kpi of kpis(); track kpi.label) {
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-pink-100 text-pink-600">
             <ng-icon [name]="kpi.icon" />
@@ -32,7 +39,7 @@
     <div class="mb-4 grid gap-4 lg:grid-cols-2">
       <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 class="mb-1 text-sm font-bold text-gray-800">Connectés par heure</h2>
-        <p class="mb-4 text-xs text-gray-500">Journée type de la semaine en cours</p>
+        <p class="mb-4 text-xs text-gray-500">Activité (dernier accès) sur 7 jours</p>
         <div class="flex h-40 items-end gap-1">
           @for (v of heures(); track $index; let i = $index) {
             <div class="flex flex-1 flex-col items-center gap-1">
@@ -50,14 +57,14 @@
       </section>
 
       <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 class="mb-1 text-sm font-bold text-gray-800">Connectés par jour</h2>
-        <p class="mb-4 text-xs text-gray-500">Semaine en cours</p>
+        <h2 class="mb-1 text-sm font-bold text-gray-800">Publications par jour</h2>
+        <p class="mb-4 text-xs text-gray-500">7 derniers jours avec activité</p>
         <div class="flex h-40 items-end gap-3">
-          @for (j of jours; track j.label) {
+          @for (j of jours(); track j.label + $index) {
             <div class="flex flex-1 flex-col items-center gap-2">
               <div
                 class="w-full max-w-10 rounded-t bg-gradient-to-t from-pink-600 to-purple-500"
-                [style.height.%]="barHeight(j.value, maxJour)"
+                [style.height.%]="barHeight(j.value, maxJour())"
                 [title]="j.label + ' : ' + j.value"
               ></div>
               <span class="text-xs font-semibold text-gray-600">{{ j.label }}</span>
@@ -67,20 +74,56 @@
       </section>
     </div>
 
-    <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 class="mb-1 text-sm font-bold text-gray-800">Retours terrain</h2>
+    <section class="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <h2 class="mb-1 text-sm font-bold text-gray-800">Retours terrain (quartiers)</h2>
       <p class="mb-4 text-xs text-gray-500">
         Est-ce que l'app aide vraiment ? Ces indicateurs partent vers l'admin national.
       </p>
       <div class="grid gap-3 sm:grid-cols-3">
-        @for (r of retours; track r.theme) {
+        @for (r of retours(); track r.theme) {
           <div class="rounded-xl border border-pink-100 bg-pink-50 p-4">
             <p class="text-sm font-bold text-gray-900">{{ r.theme }}</p>
             <p class="mt-1 text-xs font-semibold text-pink-700">Tendance : {{ r.tendance }}</p>
             <p class="mt-2 text-xs leading-5 text-gray-600">{{ r.detail }}</p>
           </div>
+        } @empty {
+          <p class="text-sm text-gray-500">Aucune donnée quartier pour le moment.</p>
         }
       </div>
+    </section>
+
+    <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-bold text-gray-800">Soumettre un rapport à l'Admin</h2>
+      <input
+        type="text"
+        [(ngModel)]="rapportTitre"
+        name="rapportTitre"
+        placeholder="Titre du rapport"
+        class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:ring-2 focus:ring-pink-500"
+      />
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="text-xs font-semibold text-gray-600">Déchets avant %
+          <input type="number" [(ngModel)]="tauxDechetsAvant" name="tauxDechetsAvant" class="mt-1 w-full rounded-lg border border-gray-200 p-2" />
+        </label>
+        <label class="text-xs font-semibold text-gray-600">Déchets après %
+          <input type="number" [(ngModel)]="tauxDechetsApres" name="tauxDechetsApres" class="mt-1 w-full rounded-lg border border-gray-200 p-2" />
+        </label>
+        <label class="text-xs font-semibold text-gray-600">Criminalité avant %
+          <input type="number" [(ngModel)]="tauxCrimeAvant" name="tauxCrimeAvant" class="mt-1 w-full rounded-lg border border-gray-200 p-2" />
+        </label>
+        <label class="text-xs font-semibold text-gray-600">Criminalité après %
+          <input type="number" [(ngModel)]="tauxCrimeApres" name="tauxCrimeApres" class="mt-1 w-full rounded-lg border border-gray-200 p-2" />
+        </label>
+      </div>
+      <button
+        type="button"
+        (click)="soumettreRapport()"
+        [disabled]="submitting()"
+        class="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-bold text-white hover:bg-pink-700 disabled:opacity-60"
+      >
+        <ng-icon name="heroPaperAirplane" />
+        {{ submitting() ? 'Envoi…' : 'Soumettre à l’admin' }}
+      </button>
     </section>
   </div>
 </main>

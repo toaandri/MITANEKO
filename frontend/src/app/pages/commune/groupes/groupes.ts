@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -11,8 +11,9 @@ import {
   heroChatBubbleLeftRight,
 } from '@ng-icons/heroicons/outline';
 import { CommuneNav } from '../commune-nav';
+import { CommuneApiService, CommuneGroupe } from '../../../core/api-services';
 
-interface Groupe {
+interface GroupeView {
   id: string;
   nom: string;
   description: string;
@@ -40,51 +41,46 @@ interface Groupe {
     }),
   ],
 })
-export class CommuneGroupes {
-  groupes = signal<Groupe[]>([
-    {
-      id: 'g1',
-      nom: 'Nettoyage Tana 5',
-      description: 'Groupe modéré pour les opérations de nettoyage dans la ville de Tana 5.',
-      quartier: 'Antananarivo V',
-      membres: 64,
-      type: 'nettoyage',
-      avecPolice: false,
-      actif: true,
-    },
-    {
-      id: 'g2',
-      nom: 'Rondes Isotry + Police',
-      description: 'Organisation des rondes de quartier avec un représentant de la police.',
-      quartier: 'Isotry',
-      membres: 28,
-      type: 'securite',
-      avecPolice: true,
-      actif: true,
-    },
-    {
-      id: 'g3',
-      nom: 'Entraide Analakely',
-      description: 'Forum d\'entraide locale : objets perdus, alertes, solidarité.',
-      quartier: 'Analakely',
-      membres: 112,
-      type: 'entraide',
-      avecPolice: false,
-      actif: true,
-    },
-    {
-      id: 'g4',
-      nom: 'Discussion camion poubelle',
-      description: 'Groupe lié au sondage sur le passage du camion poubelle.',
-      quartier: '67Ha',
-      membres: 19,
-      type: 'discussion',
-      avecPolice: false,
-      actif: false,
-    },
-  ]);
+export class CommuneGroupes implements OnInit {
+  private communeApi = inject(CommuneApiService);
 
-  typeIcon(type: Groupe['type']) {
+  groupes = signal<GroupeView[]>([]);
+  loading = signal(true);
+  error = signal<string | null>(null);
+
+  ngOnInit() {
+    this.communeApi.listGroupes().subscribe({
+      next: (res) => {
+        this.groupes.set((res.data || []).map((g) => this.mapGroupe(g)));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message || 'Impossible de charger les groupes.');
+      },
+    });
+  }
+
+  private mapGroupe(g: CommuneGroupe): GroupeView {
+    const nom = (g.nom || '').toLowerCase();
+    let type: GroupeView['type'] = 'discussion';
+    if (nom.includes('nettoy') || nom.includes('assain')) type = 'nettoyage';
+    else if (nom.includes('ronde') || nom.includes('sécur') || nom.includes('secur')) type = 'securite';
+    else if (nom.includes('entraid')) type = 'entraide';
+
+    return {
+      id: g.id,
+      nom: g.nom,
+      description: g.description || 'Groupe modéré par la commune.',
+      quartier: g.commune_nom || 'Commune',
+      membres: g.nb_membres ?? 0,
+      type,
+      avecPolice: type === 'securite',
+      actif: g.is_active !== false,
+    };
+  }
+
+  typeIcon(type: GroupeView['type']) {
     return (
       {
         nettoyage: 'heroTrash',
@@ -95,7 +91,7 @@ export class CommuneGroupes {
     )[type];
   }
 
-  typeLabel(type: Groupe['type']) {
+  typeLabel(type: GroupeView['type']) {
     return (
       {
         nettoyage: 'Nettoyage',

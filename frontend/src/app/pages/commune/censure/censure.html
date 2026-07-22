@@ -82,8 +82,8 @@
                   Suspendre l'auteur
                 </label>
                 <label class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                  <input type="radio" name="sanction" value="suspendre_commentateurs" [(ngModel)]="sanction" class="accent-pink-600" />
-                  Suspendre les commentateurs
+                  <input type="radio" name="sanction" value="approuver" [(ngModel)]="sanction" class="accent-pink-600" />
+                  Approuver / ignorer le signalement
                 </label>
                 <label class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                   <input type="radio" name="sanction" value="bannir" [(ngModel)]="sanction" class="accent-pink-600" />
@@ -92,7 +92,7 @@
               </div>
             </div>
 
-            @if (sanction === 'suspendre_auteur' || sanction === 'suspendre_commentateurs') {
+            @if (sanction === 'suspendre_auteur') {
               <div class="flex flex-wrap items-end gap-3">
                 <div>
                   <label class="mb-1 block text-xs font-semibold text-gray-600">Durée</label>

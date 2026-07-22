@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -10,7 +10,9 @@ import {
   heroDocumentText,
   heroHandRaised,
   heroArrowTrendingUp,
+  heroCheckCircle,
 } from '@ng-icons/heroicons/outline';
+import { AdminApiService } from '../../../core/api-services';
 
 @Component({
   selector: 'app-admin-performance',
@@ -27,40 +29,99 @@ import {
       heroDocumentText,
       heroHandRaised,
       heroArrowTrendingUp,
+      heroCheckCircle,
     }),
   ],
 })
-export class AdminPerformance {
-  mois = 'Juillet 2026';
+export class AdminPerformance implements OnInit {
+  private adminApi = inject(AdminApiService);
 
-  nationaux = [
-    { label: 'Publications (pays)', value: '12 480', icon: 'heroDocumentText' },
-    { label: 'Utilisateurs actifs', value: '86 200', icon: 'heroUsers' },
-    { label: 'Votes sondages', value: '41 350', icon: 'heroHandRaised' },
-    { label: 'Communes reportant', value: '142', icon: 'heroBuildingOffice2' },
-  ];
+  mois = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  loading = signal(true);
+  error = signal<string | null>(null);
+  feedback = signal<string | null>(null);
 
-  /** Pas de classement — affichage neutre par région */
-  regions = [
-    { nom: 'Analamanga', pubs: 3200, actifs: 21000, securite: 'en baisse', dechets: 'en baisse' },
-    { nom: 'Atsinanana', pubs: 1800, actifs: 9800, securite: 'stable', dechets: 'en baisse' },
-    { nom: 'Vakinankaratra', pubs: 1400, actifs: 7200, securite: 'en baisse', dechets: 'stable' },
-    { nom: 'Diana', pubs: 980, actifs: 5100, securite: 'stable', dechets: 'en baisse' },
-    { nom: 'Autres régions', pubs: 5100, actifs: 43100, securite: 'en baisse', dechets: 'en baisse' },
-  ];
+  nationaux = signal([
+    { label: 'Publications (pays)', value: '—', icon: 'heroDocumentText' },
+    { label: 'Citoyens actifs', value: '—', icon: 'heroUsers' },
+    { label: 'Signalements résolus', value: '—', icon: 'heroHandRaised' },
+    { label: 'Communes actives', value: '—', icon: 'heroBuildingOffice2' },
+  ]);
 
-  impacts = [
-    {
-      titre: 'Routes plus propres',
-      detail: 'Les nettoyages collectifs et les sondages camion poubelle ont réduit les dépôts sauvages signalés.',
-    },
-    {
-      titre: 'Insécurité en baisse',
-      detail: 'Les alertes citoyennes et les rondes de quartier avec la police ont accéléré les interventions.',
-    },
-    {
-      titre: 'Vies sauvées',
-      detail: 'Exemple : une publication a permis de retrouver une personne disparue à temps.',
-    },
-  ];
+  regions = signal<
+    Array<{ nom: string; pubs: number; actifs: number; resolus: number; region: string }>
+  >([]);
+
+  rapports = signal<Array<{ id: string; titre: string; commune: string; detail: string }>>([]);
+
+  ngOnInit() {
+    this.load();
+  }
+
+  load() {
+    this.loading.set(true);
+    this.adminApi.dashboard().subscribe({
+      next: (res) => {
+        const g = res.data.global || {};
+        this.nationaux.set([
+          {
+            label: 'Publications (pays)',
+            value: String(g['nb_publications'] ?? 0),
+            icon: 'heroDocumentText',
+          },
+          {
+            label: 'Citoyens actifs',
+            value: String(g['nb_citoyens'] ?? 0),
+            icon: 'heroUsers',
+          },
+          {
+            label: 'Signalements résolus',
+            value: String(g['signalements_resolus'] ?? 0),
+            icon: 'heroHandRaised',
+          },
+          {
+            label: 'Communes actives',
+            value: String(g['nb_communes'] ?? 0),
+            icon: 'heroBuildingOffice2',
+          },
+        ]);
+
+        this.regions.set(
+          (res.data.communes || []).map((c) => ({
+            nom: String(c['nom'] || ''),
+            region: String(c['region'] || '—'),
+            pubs: Number(c['nb_publications'] || 0),
+            actifs: Number(c['nb_citoyens'] || 0),
+            resolus: Number(c['nb_resolus'] || 0),
+          })),
+        );
+
+        this.rapports.set(
+          (res.data.rapports_en_attente || []).map((r) => ({
+            id: String(r['id']),
+            titre: String(r['titre'] || 'Rapport'),
+            commune: String(r['commune_nom'] || ''),
+            detail: String(r['contenu'] || 'Rapport de performance à publier.'),
+          })),
+        );
+
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message || 'Dashboard admin indisponible.');
+      },
+    });
+  }
+
+  publierRapport(id: string) {
+    this.adminApi.publishRapport(id).subscribe({
+      next: () => {
+        this.feedback.set('Rapport publié sur la page publique.');
+        this.rapports.update((list) => list.filter((r) => r.id !== id));
+        window.setTimeout(() => this.feedback.set(null), 3500);
+      },
+      error: (err) => this.error.set(err.error?.message || 'Publication impossible.'),
+    });
+  }
 }

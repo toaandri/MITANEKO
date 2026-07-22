@@ -1,7 +1,7 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   heroMegaphone,
@@ -13,6 +13,7 @@ import {
   heroCheckCircle,
 } from '@ng-icons/heroicons/outline';
 import { CommuneNav } from '../commune-nav';
+import { CommuneApiService, PublicationsApiService } from '../../../core/api-services';
 
 type PubType = 'officielle' | 'sondage' | 'avant_apres' | 'autre';
 
@@ -35,12 +36,18 @@ type PubType = 'officielle' | 'sondage' | 'avant_apres' | 'autre';
   ],
 })
 export class CommuneCreerPublication {
+  private communeApi = inject(CommuneApiService);
+  private publicationsApi = inject(PublicationsApiService);
+  private router = inject(Router);
+
   type = signal<PubType>('officielle');
   titre = '';
   contenu = '';
+  categorie: 'securite' | 'entraide' | 'hygiene' | 'communaute' | 'conseil' | 'autre' = 'communaute';
   boutonJeParticipe = true;
   groupeDiscussion = true;
   avecPolice = false;
+  representantPolice = '';
 
   sondageQuestion = '';
   options: string[] = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi'];
@@ -53,6 +60,8 @@ export class CommuneCreerPublication {
   statutAvancee: 'evolue' | 'retrouvee' | 'aucun_changement' = 'evolue';
 
   feedback = signal<string | null>(null);
+  error = signal<string | null>(null);
+  loading = signal(false);
 
   types = [
     { id: 'officielle' as PubType, label: 'Annonce officielle', icon: 'heroMegaphone', desc: 'Nettoyage, rondes, alertes…' },
@@ -83,15 +92,89 @@ export class CommuneCreerPublication {
   }
 
   publier() {
-    if (!this.titre.trim()) {
-      this.feedback.set('Le titre est obligatoire.');
+    this.error.set(null);
+    this.feedback.set(null);
+
+    if (this.isRepublication()) {
+      this.republier();
       return;
     }
-    if (this.isSondage() && (!this.sondageQuestion.trim() || this.options.length < 2)) {
-      this.feedback.set('Un sondage nécessite une question et au moins 2 options.');
+
+    if (!this.titre.trim() || !this.contenu.trim()) {
+      this.error.set('Le titre et le contenu sont obligatoires.');
       return;
     }
-    this.feedback.set('Publication créée avec succès (aperçu interface).');
-    window.setTimeout(() => this.feedback.set(null), 3500);
+    if (this.isSondage() && this.options.filter((o) => o.trim()).length < 2) {
+      this.error.set('Un sondage nécessite au moins 2 options.');
+      return;
+    }
+
+    const participation =
+      this.isOfficielle() && this.boutonJeParticipe
+        ? true
+        : this.isAvantApres()
+          ? false
+          : false;
+
+    const type_publication = this.isSondage()
+      ? 'sondage'
+      : participation
+        ? 'participation'
+        : 'officielle';
+
+    const contenu =
+      this.isSondage() && this.sondageQuestion.trim()
+        ? `${this.sondageQuestion.trim()}\n\n${this.contenu.trim()}`
+        : this.isAvantApres()
+          ? `${this.contenu.trim()}\n\nAvant: ${this.avantUrl || '—'}\nAprès: ${this.apresUrl || '—'}`
+          : this.contenu.trim();
+
+    this.loading.set(true);
+    this.communeApi
+      .createPublication({
+        titre: this.titre.trim(),
+        contenu,
+        categorie: this.categorie,
+        type_publication,
+        portee: 'commune',
+        participation_active: participation || this.boutonJeParticipe,
+        representant_police: this.avecPolice ? this.representantPolice || 'Police locale' : null,
+        options_sondage: this.isSondage() ? this.options.map((o) => o.trim()).filter(Boolean) : undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.loading.set(false);
+          this.feedback.set('Publication créée avec succès.');
+          window.setTimeout(() => this.router.navigateByUrl('/commune/publications'), 800);
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(err.error?.message || 'Échec de la publication.');
+        },
+      });
+  }
+
+  private republier() {
+    if (!this.republicationSourceId.trim() || !this.contenu.trim()) {
+      this.error.set('ID de publication source et contenu requis pour republier.');
+      return;
+    }
+    this.loading.set(true);
+    this.publicationsApi
+      .republier(this.republicationSourceId.trim(), {
+        contenu: this.contenu.trim(),
+        statut_mise_a_jour: this.statutAvancee,
+      })
+      .subscribe({
+        next: () => {
+          this.loading.set(false);
+          this.feedback.set('Republication créée (limite 1× / jour / publication).');
+          window.setTimeout(() => this.router.navigateByUrl('/commune/publications'), 800);
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(err.error?.message || 'Échec de la republication.');
+        },
+      });
   }
 }
