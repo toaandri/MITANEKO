@@ -11,17 +11,18 @@ import {
   heroAdjustmentsHorizontal,
   heroMapPin
 } from '@ng-icons/heroicons/outline';
+import { ApiSuccess } from '../../core/api';
+
+interface ApiPublication {
+  id: string; titre: string; contenu: string; categorie: string;
+  photo_url?: string; created_at?: string; adresse?: string;
+  localisation?: { type: string; coordinates: [number, number] } | null;
+}
 
 interface Publication {
-  id: string;
-  titre: string;
-  contenu: string;
-  categorie: string;
-  latitude: number;
-  longitude: number;
-  adresse?: string;
-  photo?: string;
-  created_at?: string;
+  id: string; titre: string; contenu: string; categorie: string;
+  latitude: number; longitude: number; adresse?: string;
+  photo?: string; created_at?: string;
 }
 
 @Component({
@@ -94,9 +95,19 @@ export class CarteComponent implements AfterViewInit {
   }
 
   private loadPublications(): void {
-    this.http.get<Publication[]>('/api/publications').subscribe({
-      next: (data) => {
-        this.allPublications = data.filter(p => p.latitude && p.longitude);
+    this.http.get<ApiSuccess<ApiPublication[]>>('/api/publications?limit=100').subscribe({
+      next: (res) => {
+        this.allPublications = (res.data || []).map(p => ({
+          id: p.id,
+          titre: p.titre,
+          contenu: p.contenu,
+          categorie: p.categorie,
+          latitude: p.localisation?.coordinates?.[1] ?? 0,
+          longitude: p.localisation?.coordinates?.[0] ?? 0,
+          adresse: p.adresse,
+          photo: p.photo_url,
+          created_at: p.created_at,
+        })).filter(p => p.latitude && p.longitude);
         this.renderMarkers();
       },
       error: (err) => console.error('Erreur chargement signalements :', err)

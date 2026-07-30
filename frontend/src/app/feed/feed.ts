@@ -1,5 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   heroShieldCheck, heroTrash, heroHeart, heroWrenchScrewdriver,
@@ -8,6 +9,7 @@ import {
   heroFlag, heroBookmark, heroUsers, heroClock, heroUser,
 } from '@ng-icons/heroicons/outline';
 import { heroHandThumbUpSolid } from '@ng-icons/heroicons/solid';
+import { ApiSuccess } from '../core/api';
 
 export type Categorie = 'tous' | 'securite' | 'proprete' | 'entraide' | 'infrastructure';
 
@@ -19,6 +21,11 @@ export interface Publication {
   status: 'cree' | 'en_cours' | 'resolu';
   anonyme: boolean; liked: boolean;
 }
+
+const CAT_MAP: Record<string, Categorie> = {
+  securite: 'securite', hygiene: 'proprete', entraide: 'entraide',
+  communaute: 'entraide', conseil: 'infrastructure', autre: 'proprete',
+};
 
 export const FILTRES = [
   { label: 'Tous',            value: 'tous' as Categorie,           icon: 'heroGlobeAlt',         chipColor: 'bg-gray-100 text-gray-700 border-gray-300' },
@@ -39,10 +46,12 @@ export const FILTRES = [
     heroFlag, heroBookmark, heroUsers, heroClock, heroUser, heroHandThumbUpSolid,
   })]
 })
-export class Feed {
+export class Feed implements OnInit {
+  private http = inject(HttpClient);
   filtreActif = signal<Categorie>('tous');
   filtres = FILTRES;
   publications = signal<Publication[]>([]);
+  loading = signal(false);
 
   menuItems: { label: string; icon: string; active: boolean }[] = [
     { label: 'Fil d\'actualité', icon: 'heroFlag',      active: true  },
@@ -53,6 +62,40 @@ export class Feed {
   ];
 
   contacts: never[] = [];
+
+  ngOnInit() {
+    this.loadPublications();
+  }
+
+  private loadPublications() {
+    this.loading.set(true);
+    this.http.get<ApiSuccess<any[]>>('/api/publications?limit=50').subscribe({
+      next: (res) => {
+        this.publications.set((res.data || []).map(this.mapPublication));
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
+  }
+
+  private mapPublication(api: any): Publication {
+    return {
+      id: api.id,
+      titre: api.titre,
+      description: api.contenu || '',
+      categorie: CAT_MAP[api.categorie] || 'proprete',
+      auteur: api.auteur || 'Anonyme',
+      avatar: (api.pseudonyme || api.auteur || '?').charAt(0).toUpperCase(),
+      quartier: api.fokontany_nom || api.commune_nom || '',
+      date: api.created_at ? new Date(api.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+      votes: api.nb_votes_sondage || 0,
+      commentaires: 0,
+      partages: 0,
+      status: 'cree',
+      anonyme: !!api.anonyme,
+      liked: false,
+    };
+  }
 
   get filtered() {
     const f = this.filtreActif();

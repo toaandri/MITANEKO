@@ -1,8 +1,14 @@
 from typing import Optional
-from transformers import pipeline as hf_pipeline
 
 from src.config.settings import settings
 from src.utils.helpers import nettoyer_texte
+
+try:
+    from transformers import pipeline as hf_pipeline
+    _TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    hf_pipeline = None
+    _TRANSFORMERS_AVAILABLE = False
 
 DICO_MG_FR: dict[str, str] = {
     "lalana": "route", "vaky": "cassé", "jiro": "lumière",
@@ -24,7 +30,7 @@ _traducteur_hf: Optional = None
 
 def _charger_traducteur():
     global _traducteur_hf
-    if _traducteur_hf is None:
+    if _traducteur_hf is None and _TRANSFORMERS_AVAILABLE:
         try:
             _traducteur_hf = hf_pipeline(
                 "translation",

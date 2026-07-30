@@ -80,7 +80,7 @@ def _entrainer_classifier() -> Pipeline:
 
     pipeline = Pipeline([
         ("tfidf", TfidfVectorizer(ngram_range=(1, 3), max_features=5000)),
-        ("clf", LogisticRegression(max_iter=500, multi_class="multinomial")),
+        ("clf", LogisticRegression(max_iter=500)),
     ])
     pipeline.fit(textes, labels)
     return pipeline

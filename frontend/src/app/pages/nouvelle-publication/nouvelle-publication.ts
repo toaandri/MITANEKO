@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, AfterViewInit, Inject, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -14,6 +14,7 @@ import {
   heroXMark,
   heroSparkles
 } from '@ng-icons/heroicons/outline';
+import { AuthService } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-nouvelle-publication',
@@ -59,6 +60,8 @@ export class NouvellePublication implements AfterViewInit {
     { id: 'communaute', label: 'Communauté', icon: 'heroSparkles' },
     { id: 'conseil', label: 'Conseil', icon: 'heroWrenchScrewdriver' }
   ];
+
+  private auth = inject(AuthService);
 
   constructor(
     private http: HttpClient, 
@@ -138,7 +141,16 @@ export class NouvellePublication implements AfterViewInit {
     formData.append('titre', this.titre);
     formData.append('contenu', this.contenu);
     formData.append('categorie', this.categorie);
-    formData.append('portee', this.categorie === 'securite' ? 'securite_zone' : this.portee);
+    const portee = this.categorie === 'securite' ? 'securite_zone' : this.portee;
+    formData.append('portee', portee);
+
+    const user = this.auth.user();
+    if (user?.quartier_id && (portee === 'fokontany' || portee === 'securite_zone')) {
+      formData.append('quartier_id', user.quartier_id);
+    }
+    if (user?.commune_id) {
+      formData.append('commune_id', user.commune_id);
+    }
 
     if (this.adresse) {
       formData.append('adresse', this.adresse);
